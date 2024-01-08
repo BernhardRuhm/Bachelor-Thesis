@@ -1,0 +1,10 @@
+{
+    "FocusedLSTMLayer": {
+        "python": "../src/focused_lstm.py",
+        "c": "../xcubeai/focused_lstm/coffee_custom_layers.c"
+    },
+    "PositionalEncoding": {
+        "python": "../src/positional_encoding.py",
+        "c": "./network_custom_layers.c"
+    }
+}
