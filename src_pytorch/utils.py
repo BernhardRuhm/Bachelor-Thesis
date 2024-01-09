@@ -79,7 +79,7 @@ def train_pytorch_model():
 
     return None
 
-def train_eval_loop(n_hidden=32, n_layers=2, batch_size=128, n_epochs=250):
+def train_eval_loop(n_hidden=32, n_layers=1, batch_size=1, n_epochs=2):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
@@ -92,9 +92,9 @@ def train_eval_loop(n_hidden=32, n_layers=2, batch_size=128, n_epochs=250):
         (X_train, y_train), (X_test, y_test) = load_dataset(ds)
         seq_len, input_dim, n_classes = extract_metrics(X_train, y_train)
 
-        model_nn = LSTMDense(seq_len, input_dim, n_hidden, n_layers, n_classes)
+        model = LSTMDense(seq_len, input_dim, n_hidden, n_layers, n_classes)
 
-        model = torch.jit.script(model_nn)
+        # model = torch.jit.script(model_nn)
         model.to(device)
 
         criterion = torch.nn.CrossEntropyLoss()
@@ -104,12 +104,11 @@ def train_eval_loop(n_hidden=32, n_layers=2, batch_size=128, n_epochs=250):
             model.train()
             for b in range(0, len(X_train), batch_size):
                 x_sample = X_train[b:b+batch_size,:,:]
+                x_sample = x_sample.reshape(seq_len, batch_size, input_dim)
                 y_sample = y_train[b:b+batch_size]
 
                 x_batch = torch.tensor(x_sample, dtype=torch.float32, device=device)
                 y_batch = torch.tensor(y_sample, dtype=torch.long, device=device)
-
-                # model.init_states(x_batch.size(0))
 
                 out = model(x_batch)
                 # print(model.graph_for(x_batch))
@@ -127,12 +126,11 @@ def train_eval_loop(n_hidden=32, n_layers=2, batch_size=128, n_epochs=250):
 
                 for b in range(0, len(X_test), batch_size):
                     x_sample = X_test[b:b+batch_size,:,:]
+                    x_sample = x_sample.reshape(seq_len, batch_size, input_dim)
                     y_sample = y_test[b:b+batch_size]
 
                     x_batch = torch.tensor(x_sample, dtype=torch.float32, device=device)
                     y_batch = torch.tensor(y_sample, dtype=torch.long, device=device)
-
-                    # model.init_states(x_batch.size(0))
 
                     out = model(x_batch)
                     _, pred = torch.max(out,1)
@@ -141,6 +139,14 @@ def train_eval_loop(n_hidden=32, n_layers=2, batch_size=128, n_epochs=250):
                 
                 acc = correct / total
                 print("step: ", e, "train loss:", loss.item(), "val acc:", acc, )
+
+        dummy_x = torch.randn(seq_len, 1, input_dim).to("cuda")
+        onnx_program = torch.onnx.export(model, 
+                                         dummy_x, 
+                                         "lstm.onnx",
+                                         export_params=True,
+                                         input_names =  ["input"],
+                                         output_names =  ["output"])
 
 
 
