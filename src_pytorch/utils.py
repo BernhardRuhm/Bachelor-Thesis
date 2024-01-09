@@ -79,11 +79,12 @@ def train_pytorch_model():
 
     return None
 
-def train_eval_loop(n_hidden=32, n_layers=1, batch_size=128, n_epochs=10000):
+def train_eval_loop(n_hidden=32, n_layers=2, batch_size=128, n_epochs=250):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
     
-    datasets = ["UWaveGestureLibraryAll"]
+    datasets = ["HandOutlines"]
 
 
     for ds in datasets:

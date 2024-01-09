@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from focused_lstm import LSTMCell, LSTMLayer
+from focused_lstm import LSTMCell, LSTMLayer, StackedLSTMLayer
 
 class FocusedLSTM(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -53,7 +53,8 @@ class LSTMDense(nn.Module):
 
         # self.lstm = nn.LSTM(self.input_dim, self.n_hidden, num_layers=self.n_layers, batch_first=True)
         # self.lstm = FocusedLSTM(self.input_dim, self.n_hidden)
-        self.lstm = LSTMLayer(LSTMCell, input_dim, n_hidden)
+        # # self.lstm = LSTMLayer(LSTMCell, input_dim, n_hidden)
+        self.lstm = StackedLSTMLayer(n_layers, input_dim, n_hidden)
 
         self.dense = nn.Linear(self.n_hidden, self.n_classes)
 
@@ -63,14 +64,18 @@ class LSTMDense(nn.Module):
         
     def forward(self, x):
         
-        h = torch.zeros(x.shape[0], self.n_hidden).to("cpu")  
-        c = torch.zeros(x.shape[0], self.n_hidden).to("cpu")  
-        state = (h, c)
-
+        h1 = torch.zeros(x.shape[0], self.n_hidden).to("cuda")  
+        h2 = torch.zeros(x.shape[0], self.n_hidden).to("cuda")  
+        c1 = torch.zeros(x.shape[0], self.n_hidden).to("cuda")  
+        c2 = torch.zeros(x.shape[0], self.n_hidden).to("cuda")  
+        # h = torch.zeros(x.shape[0], self.n_hidden).to("cuda")  
+        # c = torch.zeros(x.shape[0], self.n_hidden).to("cuda")  
+        state = [(h1, c1), (h2, c2)]
         o, _ = self.lstm(x, state)
-        x = o[-1, :]
+        o = o.squeeze()
+        x = o[:, -1]
         x = self.dense(x)
         x = F.softmax(x, dim=1)
-
+        
         return x
 
