@@ -14,7 +14,7 @@ from custom_layers import FocusedLSTMCell, PositionalEncoding
 
 
 def train_model(model_id, dataset, n_hidden, n_layers, positional_encoding, save_batch_1, 
-                     n_epochs=2, batch_size=128, learning_rate=0.001): 
+                     n_epochs=250, batch_size=128, learning_rate=0.001): 
 
     (X_train, y_train), (X_test, y_test) = load_dataset(dataset)
     seq_len, input_dim, n_classes = extract_metrics(X_train, y_train)
@@ -72,19 +72,15 @@ def train_model(model_id, dataset, n_hidden, n_layers, positional_encoding, save
         # saved as .h5 since .keras results in an error due to newer keras version (downgrade to 2.12 would resolve the issue)
         model_batch1_file = os.path.join(models_dir, model_batch1_name + "_" + dataset + ".h5")
         model_batch1.save(model_batch1_file)
-        
-        return train_time
 
-def evaluate_model(model_id, dataset, batch_size=128):
+        print(model_file)
+        print("\n\n")
+        flush()
+    return train_time, model_file
+
+def evaluate_model(model_id, dataset, model_file, batch_size=128):
     
     _, (X_test, y_test) = load_dataset(dataset)
-
-    model_name, _ = valid_models[model_id] 
-
-    if n_layers > 1:
-        model_name += "_stacked"
-    
-    model_file = os.path.join(models_dir, model_name + "_" + dataset + ".h5") 
 
     if not os.path.exists(model_file):
         raise FileNotFoundError("Model %s does not exist" % model_file)
@@ -101,18 +97,24 @@ def evaluate_model(model_id, dataset, batch_size=128):
 def train_eval_loop(model_id, n_hidden, n_layers, positional_encoding=False, save_batch_1=False):
 
     # datasets = os.listdir(archiv_dir)
-    datasets = ["AtrialFibrillation"]
+    datasets = ["AtrialFibrillation", "Coffee", "HandOutlines", "EigenWorms"]
 
     model_name, _ = valid_models[model_id] 
+
+    if n_layers > 1:
+        model_name += "_stacked"
+
     time_stamp = datetime.now().strftime("%m_%d_%Y_%H:%M:%S") 
     result_file = open(model_name + "_results_" + time_stamp + ".txt", "w")
 
     for ds in datasets:
 
+        keras.backend.clear_session()
+
         print("Training: %s %s" % (model_name, ds))
 
-        train_time = train_model(model_id, ds, n_hidden, n_layers, positional_encoding, save_batch_1) 
-        loss, acc = evaluate_model(model_id, ds) 
+        train_time, model_file = train_model(model_id, ds, n_hidden, n_layers, positional_encoding, save_batch_1) 
+        loss, acc = evaluate_model(model_id, ds, model_file) 
 
         l = f"{ds}: loss: {loss:.4f}   accuracy: {acc:.4f}   training time: {train_time}\n"
         result_file.write(l) 
@@ -122,7 +124,7 @@ def train_eval_loop(model_id, n_hidden, n_layers, positional_encoding=False, sav
 if __name__ == "__main__":
 
     n_hidden = 32
-    n_layers = 1
+    n_layers = 3
 
     for model_id in range(len(valid_models)):
-        train_eval_loop(model_id, n_hidden, n_layers, positional_encoding=False, save_batch_1=True)
+        train_eval_loop(model_id, n_hidden, n_layers, positional_encoding=False, save_batch_1=False)

@@ -2,7 +2,7 @@ import os
 import numpy as np
 from aeon.datasets import load_from_tsv_file, load_from_tsfile
 
-archiv_dir = "./datasets/"
+archiv_dir = "./datasets/Univariate_ts/"
 models_dir = "./models/"
 log_dir = "./logs/"
 
