@@ -1,0 +1,10 @@
+../Core/Src/main.c:72:6:get_input	2
+../Core/Src/main.c:80:6:ai_log_error	1
+../Core/Src/main.c:86:5:ai_init	2
+../Core/Src/main.c:104:5:ai_run	2
+../Core/Src/main.c:128:5:main	1
+../Core/Src/main.c:175:6:SystemClock_Config	3
+../Core/Src/main.c:214:13:MX_CRC_Init	2
+../Core/Src/main.c:245:13:MX_USART2_UART_Init	2
+../Core/Src/main.c:280:13:MX_GPIO_Init	1
+../Core/Src/main.c:320:6:Error_Handler	1

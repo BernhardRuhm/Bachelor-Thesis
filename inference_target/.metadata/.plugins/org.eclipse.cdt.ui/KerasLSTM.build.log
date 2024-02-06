@@ -1,0 +1,10 @@
+12:46:55 **** Incremental Build of configuration Debug for project KerasLSTM ****
+make -j24 all 
+arm-none-eabi-size  KerasLSTM.elf 
+   text	   data	    bss	    dec	    hex	filename
+  49832	   1612	   6948	  58392	   e418	KerasLSTM.elf
+Finished building: default.size.stdout
+ 
+
+12:46:56 Build Finished. 0 errors, 0 warnings. (took 284ms)
+

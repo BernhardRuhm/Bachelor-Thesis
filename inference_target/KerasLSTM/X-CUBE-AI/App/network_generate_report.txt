@@ -1,0 +1,160 @@
+Neural Network Tools for STM32 family v1.7.0 (stm.ai v8.1.0-19520)
+Created date          : 2024-02-03 13:48:14
+Parameters            : generate --name network -m /home/bernhard/Documents/uni/bachelor_thesis/models/batch1_vanilla_lstm1_Coffee.h5 --type keras --compression none --verbosity 1 --workspace /tmp/mxAI_workspace1287946911308911614354744358464384 --output /home/bernhard/.stm32cubemx/network_output --series stm32f3
+
+Exec/report summary (generate)
+------------------------------------------------------------------------------------------------------------
+model file         :   /home/bernhard/Documents/uni/bachelor_thesis/models/batch1_vanilla_lstm1_Coffee.h5   
+type               :   keras                                                                                
+c_name             :   network                                                                              
+compression        :   none                                                                                 
+optimization       :   balanced                                                                             
+target/series      :   stm32f3                                                                              
+workspace dir      :   /tmp/mxAI_workspace1287946911308911614354744358464384                                
+output dir         :   /home/bernhard/.stm32cubemx/network_output                                           
+model_fmt          :   float                                                                                
+model_name         :   batch1_vanilla_lstm1_Coffee                                                          
+model_hash         :   05703541df3b341897cec0609fe7b711                                                     
+params #           :   4,418 items (17.26 KiB)                                                              
+------------------------------------------------------------------------------------------------------------
+input 1/1          :   'input_0' (domain:user/)                                                             
+                   :   286 items, 1.12 KiB, ai_float, float, (1,286,1)                                      
+output 1/1         :   'dense_1' (domain:user/)                                                             
+                   :   2 items, 8 B, ai_float, float, (1,2)                                                 
+macc               :   1,253,920                                                                            
+weights (ro)       :   18,056 B (17.63 KiB) (1 segment) / +384(+2.2%) vs float model                        
+activations (rw)   :   1,024 B (1024 B) (1 segment)                                                         
+ram (total)        :   2,176 B (2.12 KiB) = 1,024 + 1,144 + 8                                               
+------------------------------------------------------------------------------------------------------------
+
+Model name - batch1_vanilla_lstm1_Coffee ['input_0'] ['dense_1']
+------ ------------------------------- ----------------------- -------------- ----------- --------------- --- ------------------ --------------------- ----------------------------- 
+m_id   layer (type,original)           oshape                  param/size            macc    connected to   | c_size             c_macc                c_type                        
+------ ------------------------------- ----------------------- -------------- ----------- --------------- --- ------------------ --------------------- ----------------------------- 
+0      input_0 (Input, None)           [b:1,h:286,h:286,c:1]                                                | +17,792(+100.0%)   +1,253,824(+100.0%)   lstm_of32[0]                  
+       lstm_1 (LSTM, LSTM)             [b:1,c:32]              4,352/17,408     1,253,824         input_0   | -17,408(-100.0%)   -1,253,824(-100.0%)   
+------ ------------------------------- ----------------------- -------------- ----------- --------------- --- ------------------ --------------------- ----------------------------- 
+1      dense_1_dense (Dense, Dense)    [b:1,c:2]               66/264                  66          lstm_1   |                    +30(+45.5%)           dense_of32/nl_of32[o][1, 2]   
+       dense_1 (Nonlinearity, Dense)   [b:1,c:2]                                       30   dense_1_dense   |                    -30(-100.0%)          
+------ ------------------------------- ----------------------- -------------- ----------- --------------- --- ------------------ --------------------- ----------------------------- 
+model/c-model: macc=1,253,920/1,253,920  weights=17,672/18,056 +384(+2.2%) activations=--/1,024 io=--/1,152
+
+
+
+Generated C-graph summary
+------------------------------------------------------------------------------------------------------------------------
+model name            : batch1_vanilla_lstm1_coffee
+c-name                : network
+c-node #              : 3
+c-array #             : 11
+activations size      : 1024 (1 segment)
+weights size          : 18056 (1 segment)
+macc                  : 1253920
+inputs                : ['input_0_output']
+outputs               : ['dense_1_output']
+
+C-Arrays (11)
+------ ----------------------- ------------ ------------------------- ------------- --------- --------- 
+c_id   name (*_array)          item/size    domain/mem-pool           c-type        fmt       comment   
+------ ----------------------- ------------ ------------------------- ------------- --------- --------- 
+0      dense_1_dense_bias      2/8          weights/weights           const float   float32             
+1      lstm_1_scratch0         224/896      activations/**default**   float         float32             
+2      input_0_output          286/1144     user/                     float         float32   /input    
+3      lstm_1_output0          32/128       activations/**default**   float         float32             
+4      dense_1_dense_output    2/8          activations/**default**   float         float32             
+5      dense_1_output          2/8          user/                     float         float32   /output   
+6      lstm_1_kernel           128/512      weights/weights           const float   float32             
+7      lstm_1_recurrent        4096/16384   weights/weights           const float   float32             
+8      lstm_1_peephole         96/384       weights/weights           const float   float32             
+9      lstm_1_bias             128/512      weights/weights           const float   float32             
+10     dense_1_dense_weights   64/256       weights/weights           const float   float32             
+------ ----------------------- ------------ ------------------------- ------------- --------- --------- 
+
+C-Layers (3)
+------ ---------------- ---- ------------ --------- ------- -------------------------- ------------------ 
+c_id   name (*_layer)   id   layer_type   macc      rom     tensors                    shape (array id)   
+------ ---------------- ---- ------------ --------- ------- -------------------------- ------------------ 
+0      lstm_1           0    lstm         1253824   17792   I: input_0_output          (1,286,1) (2)      
+                                                            S: lstm_1_scratch0                            
+                                                            W: lstm_1_kernel           (1,128) (6)        
+                                                            W: lstm_1_recurrent        (32,128) (7)       
+                                                            W: lstm_1_peephole         (1,1,1,96) (8)     
+                                                            W: lstm_1_bias             (128,) (9)         
+                                                            O: lstm_1_output0          (1,32) (3)         
+------ ---------------- ---- ------------ --------- ------- -------------------------- ------------------ 
+1      dense_1_dense    1    dense        66        264     I: lstm_1_output0          (1,32) (3)         
+                                                            W: dense_1_dense_weights   (32,2) (10)        
+                                                            W: dense_1_dense_bias      (2,) (0)           
+                                                            O: dense_1_dense_output    (1,2) (4)          
+------ ---------------- ---- ------------ --------- ------- -------------------------- ------------------ 
+2      dense_1          1    nl           30        0       I: dense_1_dense_output    (1,2) (4)          
+                                                            O: dense_1_output          (1,2) (5)          
+------ ---------------- ---- ------------ --------- ------- -------------------------- ------------------ 
+
+
+
+Number of operations per c-layer
+------- ------ ----------------------- ----------- -------------- -------- ---------- 
+c_id    m_id   name (type)                     #op           type   #param   sparsity 
+------- ------ ----------------------- ----------- -------------- -------- ---------- 
+0       0      lstm_1 (lstm)             1,253,824   smul_f32_f32    4,448     0.0216 
+1       1      dense_1_dense (dense)            66   smul_f32_f32       66     0.0000 
+2       1      dense_1 (nl)                     30     op_f32_f32          
+------- ------ ----------------------- ----------- -------------- -------- ---------- 
+total                                    1,253,920                   4,514     0.0213 
+
+Number of operation types
+---------------- ----------- ----------- 
+operation type             #           % 
+---------------- ----------- ----------- 
+smul_f32_f32       1,253,890      100.0% 
+op_f32_f32                30        0.0% 
+
+Complexity report (model)
+------ --------------- ------------------------- ------------------------- -------- 
+m_id   name            c_macc                    c_rom                     c_id     
+------ --------------- ------------------------- ------------------------- -------- 
+0      input_0         |||||||||||||||| 100.0%   ||||||||||||||||  98.5%   [0]      
+1      dense_1_dense   |                  0.0%   |                  1.5%   [1, 2]   
+------ --------------- ------------------------- ------------------------- -------- 
+macc=1,253,920 weights=18,056 act=1,024 ram_io=1,152
+ 
+ Requested memory size per segment ("stm32f3" series)
+ ----------------------------- -------- -------- ------- ------- 
+ module                            text   rodata    data     bss 
+ ----------------------------- -------- -------- ------- ------- 
+ NetworkRuntime810_CM4_GCC.a     13,932        0       0       0 
+ network.o                          540       24   1,400     124 
+ network_data.o                      56       48      88       0 
+ lib (toolchain)*                 1,576       24       1       0 
+ ----------------------------- -------- -------- ------- ------- 
+ RT total**                      16,104       96   1,489     124 
+ ----------------------------- -------- -------- ------- ------- 
+ *weights*                            0   18,056       0       0 
+ *activations*                        0        0       0   1,024 
+ *io*                                 0        0       0   1,152 
+ ----------------------------- -------- -------- ------- ------- 
+ TOTAL                           16,104   18,152   1,489   2,300 
+ ----------------------------- -------- -------- ------- ------- 
+ *  toolchain objects (libm/libgcc*)
+ ** RT - AI runtime objects (kernels+infrastructure)
+  
+  Summary per memory device type
+  --------------------------------------------
+  .\device      FLASH       %     RAM       % 
+  --------------------------------------------
+  RT total     17,689   49.5%   1,613   42.6% 
+  --------------------------------------------
+  TOTAL        35,745           3,789         
+  --------------------------------------------
+
+
+Generated files (7)
+------------------------------------------------------------------ 
+/home/bernhard/.stm32cubemx/network_output/network_config.h        
+/home/bernhard/.stm32cubemx/network_output/network.h               
+/home/bernhard/.stm32cubemx/network_output/network.c               
+/home/bernhard/.stm32cubemx/network_output/network_data_params.h   
+/home/bernhard/.stm32cubemx/network_output/network_data_params.c   
+/home/bernhard/.stm32cubemx/network_output/network_data.h          
+/home/bernhard/.stm32cubemx/network_output/network_data.c          

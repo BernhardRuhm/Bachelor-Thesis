@@ -1,0 +1,6 @@
+{
+    "PositionalEncoding": {
+        "python": "../custom_layers.py",
+        "c": "./network_custom_layers.c"
+    }
+}
