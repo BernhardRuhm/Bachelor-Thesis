@@ -1,4 +1,0 @@
-AtrialFibrillation: loss: 3.3739   accuracy: 0.2667   training time: 24.27147364616394
-Coffee: loss: 0.1949   accuracy: 0.9643   training time: 13.829079151153564
-HandOutlines: loss: 0.6485   accuracy: 0.6568   training time: 442.66845083236694
-EigenWorms: loss: 1.6607   accuracy: 0.4809   training time: 449.97558760643005

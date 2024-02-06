@@ -1,8 +1,9 @@
 __pycache__/
 
-xcubeai/
-models/ 
+datasets/
 models_old/ 
-ValidationTest/
 krempel/
 datasets/
+resources/
+env/
+
