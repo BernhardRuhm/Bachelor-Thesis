@@ -25,13 +25,12 @@ class PositionalEncoding(nn.Module):
 
         angles = torch.unsqueeze(positions, 1) * torch.unsqueeze(timescales, 0).to(self.device)
 
-        cos_mask = (torch.arange(self.input_dim) % 2).to("cuda") 
-        sin_mask = (1 - cos_mask).to("cuda")
+        cos_mask = (torch.arange(self.input_dim) % 2).to(self.device) 
+        sin_mask = (1 - cos_mask).to(self.device)
 
         return torch.sin(angles) * sin_mask + torch.cos(angles) * cos_mask
 
     def forward(self, x):
-
         return x + torch.unsqueeze(self.positional_encodings, 1)
 
 
