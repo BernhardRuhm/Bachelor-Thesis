@@ -6,6 +6,7 @@ from datetime import datetime
 
 import tensorflow as tf
 import keras
+import numpy as np
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from keras.saving import load_model
 
@@ -14,14 +15,14 @@ from models import gen_focused_dense, gen_vanilla_dense, valid_models
 from custom_layers import FocusedLSTMCell, PositionalEncoding
 
 sys.path.append("../utils")
-from util import load_dataset, extract_metrics, archiv_dir, models_dir, result_dir 
+from util import load_dataset, extract_metrics, archiv_dir, models_dir, result_dir, create_results_csv, add_results, calculate_eval_metrics 
 
 
 
 def train_model(model_id, dataset, hidden_size, n_layers, positional_encoding, save_batch_1, 
-                     n_epochs=250, batch_size=128, learning_rate=0.001): 
+                     n_epochs=2000, batch_size=128, learning_rate=0.001): 
 
-    (X_train, y_train), (X_test, y_test) = load_dataset(dataset)
+    (X_train, y_train), (X_test, y_test) = load_dataset(dataset, positional_encoding)
     seq_len, input_dim, n_classes = extract_metrics(X_train, y_train)
 
     model_name, gen_model = valid_models[model_id] 
@@ -37,8 +38,10 @@ def train_model(model_id, dataset, hidden_size, n_layers, positional_encoding, s
     optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
     callbacks = [
         ModelCheckpoint(model_file, monitor="loss", save_best_only=True, verbose=0),
-        ReduceLROnPlateau(monitor="loss", patience=50, mode="auto", min_lr=1e-4, factor=0.5)
+        ReduceLROnPlateau(monitor="loss", patience=100, mode="auto", min_lr=1e-4, factor=1. / np.cbrt(2))
     ]
+
+    print("Training: %s %s" % (model_name, dataset))
 
     model.compile(
        optimizer=optimizer,
@@ -83,9 +86,9 @@ def train_model(model_id, dataset, hidden_size, n_layers, positional_encoding, s
 
     return train_time, model_file
 
-def evaluate_model(model_id, dataset, model_file, batch_size=128):
+def evaluate_model(model_id, dataset, positional_encoding, model_file, batch_size=128):
     
-    _, (X_test, y_test) = load_dataset(dataset)
+    _, (X_test, y_test) = load_dataset(dataset, positional_encoding)
 
     if not os.path.exists(model_file):
         raise FileNotFoundError("Model %s does not exist" % model_file)
@@ -93,46 +96,41 @@ def evaluate_model(model_id, dataset, model_file, batch_size=128):
     model = keras.saving.load_model(model_file, compile=True, 
                                     custom_objects={'FocusedLSTMCell': FocusedLSTMCell, 
                                                     'PositionalEncoding': PositionalEncoding}) 
+    
+    y_pred = model.predict(X_test, batch_size=batch_size)
+    y_pred = np.argmax(y_pred, axis=1)
+    acc, prec, recall  = calculate_eval_metrics(y_test, y_pred)
 
-    results = model.evaluate(X_test, y_test, batch_size=batch_size, verbose=2)
-
-    return results
+    return acc, prec, recall 
 
 
 def train_eval_loop(model_id, hidden_size, n_layers, positional_encoding=False, save_batch_1=False):
 
-    # datasets = os.listdir(archiv_dir)  
-    # datasets = datasets[:len(datasets) // 4]
-    datasets = ["Coffee"]
+    datasets = os.listdir(archiv_dir)  
 
     model_name, _ = valid_models[model_id] 
 
     time_stamp = datetime.now().strftime("%m_%d_%Y_%H:%M:%S") 
 
     if positional_encoding:
-        result_file = open(os.path.join(result_dir, "keras_" + model_name + "_posenc" + "_results_" + time_stamp + ".txt"), "w")
+        result_file = os.path.join(result_dir, "keras_" + model_name + "_posenc" + "_results_" + time_stamp + ".csv")
     else:
-        result_file = open(os.path.join(result_dir, "keras_" + model_name + "_results_" + time_stamp + ".txt"), "w")
+        result_file = os.path.join(result_dir, "keras_" + model_name + "_results_" + time_stamp + ".csv")
 
+    create_results_csv(result_file)
 
-    for ds in datasets:
-
+    for ds in sorted(datasets):
         keras.backend.clear_session()
-
-        print("Training: %s %s" % (model_name, ds))
-
         train_time, model_file = train_model(model_id, ds, hidden_size, n_layers, positional_encoding, save_batch_1) 
-        loss, acc = evaluate_model(model_id, ds, model_file) 
-
-        l = f"{ds}: loss: {loss:.4f}   accuracy: {acc:.4f}   training time: {train_time}\n"
-        result_file.write(l) 
-        result_file.flush()
-
+        acc, prec, recall = evaluate_model(model_id, ds, positional_encoding, model_file) 
+        add_results(result_file, ds, acc, prec, recall, train_time )
 
 if __name__ == "__main__":
 
-    hidden_size = 32
+    hidden_size = 64
     n_layers = 1
 
-    for model_id in range(len(valid_models)):
-        train_eval_loop(model_id, hidden_size, n_layers, positional_encoding=False, save_batch_1=True)
+    train_eval_loop(0, hidden_size, n_layers, positional_encoding=False, save_batch_1=False)
+    train_eval_loop(0, hidden_size, n_layers, positional_encoding=True, save_batch_1=False)
+    # for model_id in range(len(valid_models)):
+    #     train_eval_loop(model_id, hidden_size, n_layers, positional_encoding=False, save_batch_1=True)

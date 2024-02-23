@@ -3,8 +3,9 @@ import os
 import time 
 
 from datetime import datetime
-from models import valid_models
+from models import valid_models, LSTMFCN
 
+import numpy as np
 import torch
 import onnx
 from onnxsim import simplify
@@ -14,16 +15,26 @@ sys.path.append("../utils")
 from util import models_dir, result_dir, archiv_dir 
 
 def train_model(model_id, device, dataset, hidden_size, n_layers, positional_encoding, simplify, 
-                     n_epochs=250, batch_size=128, learning_rate=0.001): 
+                     n_epochs=2000, batch_size=128, learning_rate=0.001): 
     
     dl_train, dl_test, metrics = get_Dataloaders(dataset, batch_size)
     seq_len, input_dim, n_classes = metrics
 
     model_name, gen_model = valid_models[model_id]
-    model = gen_model(device, seq_len, input_dim, hidden_size, n_classes, n_layers, positional_encoding) 
+
+    filters = [128, 256, 128]
+    kernels = [3, 5, 8]
+    model = LSTMFCN(device, input_dim, hidden_size, n_classes, n_layers, filters, kernels)
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=1. / np.cbrt(2),
+        patience=100,
+        min_lr=1e-4
+    )
     criterion = torch.nn.CrossEntropyLoss()
 
     start_time = time.time()
@@ -49,7 +60,7 @@ def train_model(model_id, device, dataset, hidden_size, n_layers, positional_enc
             for x_batch, y_batch in dl_test:
                 x_batch = torch.permute(x_batch, (1, 0, 2)).to(device)
                 y_batch = y_batch.to(device)
-
+                
                 out = model(x_batch)
                 _, pred = torch.max(out,1)
                 correct += (pred == y_batch).sum().item()
@@ -57,19 +68,22 @@ def train_model(model_id, device, dataset, hidden_size, n_layers, positional_enc
 
             acc = correct / total            
             if e % 10 == 0:
-                print("Epoch: ", e, "train loss:", loss.item(), "val acc:", acc, "\n")
-    
+                print("Epoch:", e, "train_loss:", loss.item(), "val_acc:", acc, "lr:", learning_rate, "\n")
+
+            scheduler.step(loss) 
+
     train_time = time.time() - start_time
 
     # export model to .onnx
-    dummy_x = torch.randn(seq_len, 1, input_dim).to(device)
+    dummy_input = torch.randn(seq_len, 1, input_dim).to(device)
+
     if positional_encoding:
         model_file = os.path.join(models_dir, model_name + "_posenc_" + dataset + ".onnx")
     else:
         model_file = os.path.join(models_dir, model_name + "_" + dataset + ".onnx")
 
     onnx_model = torch.onnx.export(model, 
-                                     dummy_x, 
+                                     dummy_input, 
                                      model_file,
                                      export_params=True,
                                      input_names =  ["input"],
@@ -124,5 +138,6 @@ if __name__ == "__main__":
     hidden_size = 32
     n_layers = 1
     
-    for model_id in range(len(valid_models)):
-        train_eval_loop(model_id, hidden_size, n_layers, simplify=True, positional_encoding=True)
+    train_eval_loop(2, hidden_size, n_layers, simplify=True, positional_encoding=False)
+    # for model_id in range(len(valid_models)):
+    #     train_eval_loop(model_id, hidden_size, n_layers, simplify=True, positional_encoding=False)

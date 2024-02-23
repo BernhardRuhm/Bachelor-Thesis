@@ -1,13 +1,26 @@
 import os 
 import numpy as np
-from aeon.datasets import load_from_tsv_file, load_from_tsfile
+import pandas as pd
+
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-archiv_dir = os.path.join(current_dir, "../datasets/")
+archiv_dir = os.path.join(current_dir, "../datasets/UCR_TS_Archive_2015/")
 models_dir = os.path.join(current_dir,"../models")
 result_dir = os.path.join(current_dir, "../results")
 
-def load_dataset(name, return_type="np"):
+def get_data(name):
+    if not os.path.isfile(name):
+        raise FileNotFoundError("File %s doesn't exist" % train_tsv)
+
+    data = np.loadtxt(name, delimiter=",")
+    y_train = data[:, 0] 
+    X_train = data[:, 1:]
+    return X_train, y_train
+
+def load_dataset(name, positional_encoding):
     """
     Loads a UCR dataset
 
@@ -22,23 +35,23 @@ def load_dataset(name, return_type="np"):
     if not os.path.exists(path):
         raise FileNotFoundError("Dataset directory %s doesn't exist" % name)
     
-    train_tsv = os.path.join(path, name + "_TRAIN.ts")
-    if not os.path.isfile(train_tsv):
-        raise FileNotFoundError("File %s doesn't exist" % train_tsv)
+    file_name = os.path.join(path, name)
 
-    test_tsv = os.path.join(path, name + "_TEST.ts")
-    if not os.path.isfile(test_tsv):
-        raise FileNotFoundError("File %s doesn't exist" % test_tsv)
-    X_train, y_train = load_from_tsfile(train_tsv)
-    X_test, y_test = load_from_tsfile(test_tsv)
-        
-    # reshape to (samples, seq_len, input_dim)
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[2], X_train.shape[1])
-    X_test = X_test.reshape(X_test.shape[0], X_test.shape[2], X_test.shape[1])
+    X_train, y_train = get_data(file_name + "_TRAIN")   
+    X_test, y_test = get_data(file_name + "_TEST")   
 
+    # transform labels to start with 0
     y_train = transform_labels(y_train)
     y_test = transform_labels(y_test)
-    
+
+    # if univariate, feature dimension is added
+    if len(X_train.shape) == 2:
+        X_train = np.expand_dims(X_train, axis=2)
+        X_test = np.expand_dims(X_test, axis=2)
+
+    if positional_encoding:
+        X_train = embed_positional_features(X_train)
+        X_test = embed_positional_features(X_test)
     return (X_train, y_train), (X_test, y_test) 
 
 
@@ -70,4 +83,33 @@ def extract_metrics(X, y):
     _, seq_len, dim = X.shape
     classes = len(np.unique(y))
     return seq_len, dim, classes
+
+def create_results_csv(file_name):
+    df = pd.DataFrame(data=np.zeros((0, 5)), index=[],
+                      columns = ["dataset", "accuracy", "precision", "recall", "train time"])
+
+    df.to_csv(file_name, index=False)
+
+def add_results(file_name, dataset, acc, prec, recall, time):
+    new_results = {"dataset": [dataset], "accuracy": [acc], "precision": [prec], 
+                   "recall": [recall], "train time": [time]}
+    df = pd.DataFrame(new_results)
+    df.to_csv(file_name, mode="a", index=False, header=False)
+
+def calculate_eval_metrics(y_true, y_pred):
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, average="macro")
+    recall = recall_score(y_true, y_pred, average="macro")
+    return acc, prec, recall
+
+def embed_positional_features(data):
+    num_samples = data.shape[0]
+    seq_len = data.shape[1]
+
+    positional_features = np.zeros((num_samples, seq_len, 2)) 
+    positional_features[:, :, 0] = np.sin(2*np.pi/seq_len * np.arange(seq_len)) 
+    positional_features[:, :, 1] = np.cos(2*np.pi/seq_len * np.arange(seq_len))
+    
+    return np.concatenate((data, positional_features), axis=-1) 
+
 
