@@ -1,6 +1,10 @@
 import os 
+import csv
+
 import numpy as np
 import pandas as pd
+
+import matplotlib.pyplot as plt
 
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
@@ -20,7 +24,7 @@ def get_data(name):
     X_train = data[:, 1:]
     return X_train, y_train
 
-def load_dataset(name, positional_encoding):
+def load_dataset(name, positional_encoding=False):
     """
     Loads a UCR dataset
 
@@ -84,6 +88,15 @@ def extract_metrics(X, y):
     classes = len(np.unique(y))
     return seq_len, dim, classes
 
+def get_all_datasets():
+    all_datasets = os.listdir(archiv_dir)  
+    datasets = []
+    for ds in all_datasets:
+        (X_train, y_train), _ = load_dataset(ds) 
+        if X_train.shape[0] > 400:
+            datasets.append(ds)
+    return sorted(datasets)
+
 def create_results_csv(file_name):
     df = pd.DataFrame(data=np.zeros((0, 5)), index=[],
                       columns = ["dataset", "accuracy", "precision", "recall", "train time"])
@@ -107,9 +120,17 @@ def embed_positional_features(data):
     seq_len = data.shape[1]
 
     positional_features = np.zeros((num_samples, seq_len, 2)) 
-    positional_features[:, :, 0] = np.sin(2*np.pi/seq_len * np.arange(seq_len)) 
-    positional_features[:, :, 1] = np.cos(2*np.pi/seq_len * np.arange(seq_len))
-    
+    positional_features[:, :, 0] = (np.sin(2*np.pi/seq_len * np.arange(seq_len)) + 1) * 0.5 
+    positional_features[:, :, 1] = (np.cos(2*np.pi/seq_len * np.arange(seq_len)) + 1) * 0.5
+
     return np.concatenate((data, positional_features), axis=-1) 
 
-
+def get_datasets_hiddensize(file_name):
+    content = []
+    with open(file_name, 'r') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        for row in csv_reader:
+            dataset = row[0]
+            hidden_size = row[1]
+            content.append((dataset, hidden_size))
+    return content 

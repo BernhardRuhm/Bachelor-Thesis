@@ -15,7 +15,8 @@ from models import gen_focused_dense, gen_vanilla_dense, valid_models
 from custom_layers import FocusedLSTMCell, PositionalEncoding
 
 sys.path.append("../utils")
-from util import load_dataset, extract_metrics, archiv_dir, models_dir, result_dir, create_results_csv, add_results, calculate_eval_metrics 
+from util import load_dataset, extract_metrics, archiv_dir, models_dir, result_dir
+from util import create_results_csv, add_results, calculate_eval_metrics, get_all_datasets, get_datasets_hiddensize 
 
 
 
@@ -106,7 +107,11 @@ def evaluate_model(model_id, dataset, positional_encoding, model_file, batch_siz
 
 def train_eval_loop(model_id, hidden_size, n_layers, positional_encoding=False, save_batch_1=False):
 
-    datasets = os.listdir(archiv_dir)  
+    # datasets = get_all_datasets() 
+
+    datasets = get_datasets_hiddensize(os.path.join(result_dir, "best.csv"))
+
+    datasets = [["NonInvasiveFatalECG_Thorax1", "128"]]
 
     model_name, _ = valid_models[model_id] 
 
@@ -119,18 +124,19 @@ def train_eval_loop(model_id, hidden_size, n_layers, positional_encoding=False, 
 
     create_results_csv(result_file)
 
-    for ds in sorted(datasets):
+    for data in datasets:
         keras.backend.clear_session()
-        train_time, model_file = train_model(model_id, ds, hidden_size, n_layers, positional_encoding, save_batch_1) 
-        acc, prec, recall = evaluate_model(model_id, ds, positional_encoding, model_file) 
-        add_results(result_file, ds, acc, prec, recall, train_time )
+        train_time, model_file = train_model(model_id, data[0], int(data[1]), n_layers, positional_encoding, save_batch_1) 
+        acc, prec, recall = evaluate_model(model_id, data[0], positional_encoding, model_file) 
+        add_results(result_file, data[0], acc, prec, recall, train_time )
 
 if __name__ == "__main__":
 
-    hidden_size = 64
+    hidden_size = [64, 128]
     n_layers = 1
-
-    train_eval_loop(0, hidden_size, n_layers, positional_encoding=False, save_batch_1=False)
-    train_eval_loop(0, hidden_size, n_layers, positional_encoding=True, save_batch_1=False)
+    
+    # train_eval_loop(0, 1, n_layers, positional_encoding=True, save_batch_1=False)
+    # for hs in hidden_size:
+    train_eval_loop(0, 1, n_layers, positional_encoding=False, save_batch_1=False)
     # for model_id in range(len(valid_models)):
     #     train_eval_loop(model_id, hidden_size, n_layers, positional_encoding=False, save_batch_1=True)
