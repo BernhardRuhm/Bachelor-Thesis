@@ -13,11 +13,10 @@ from sklearn.metrics import recall_score
 current_dir = os.path.dirname(os.path.abspath(__file__))
 archiv_dir = os.path.join(current_dir, "../datasets/UCR_TS_Archive_2015/")
 models_dir = os.path.join(current_dir,"../models")
-result_dir = os.path.join(current_dir, "../results")
 
 def get_data(name):
     if not os.path.isfile(name):
-        raise FileNotFoundError("File %s doesn't exist" % train_tsv)
+        raise FileNotFoundError("File %s doesn't exist" % name)
 
     data = np.loadtxt(name, delimiter=",")
     y_train = data[:, 0] 
@@ -98,14 +97,13 @@ def get_all_datasets():
     return sorted(datasets)
 
 def create_results_csv(file_name):
-    df = pd.DataFrame(data=np.zeros((0, 5)), index=[],
-                      columns = ["dataset", "accuracy", "precision", "recall", "train time"])
+    df = pd.DataFrame(data=np.zeros((0, 3)), index=[],
+                      columns = ["dataset", "accuracy", "train time"])
 
     df.to_csv(file_name, index=False)
 
-def add_results(file_name, dataset, acc, prec, recall, time):
-    new_results = {"dataset": [dataset], "accuracy": [acc], "precision": [prec], 
-                   "recall": [recall], "train time": [time]}
+def add_results(file_name, dataset, acc, time):
+    new_results = {"dataset": [dataset], "accuracy": [acc], "train time": [time]}
     df = pd.DataFrame(new_results)
     df.to_csv(file_name, mode="a", index=False, header=False)
 

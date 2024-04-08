@@ -23,12 +23,12 @@ class UCRDataset(Dataset):
 def get_Dataloaders(dataset, batch_size, positional_encoding):
 
     (X_train, y_train), (X_test, y_test) = load_dataset(dataset, positional_encoding)
-    print(X_train.shape)
+
     seq_len, input_dim, n_classes = extract_metrics(X_train, y_train)
 
     metrics = (seq_len, input_dim, n_classes)
 
     dl_train = DataLoader(UCRDataset(X_train, y_train), batch_size=batch_size, shuffle=True)
-    dl_test = DataLoader(UCRDataset(X_test, y_test), batch_size=batch_size, shuffle=True)
+    dl_test = DataLoader(UCRDataset(X_test, y_test), batch_size=batch_size, shuffle=False)
 
     return dl_train, dl_test, metrics
