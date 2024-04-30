@@ -18,11 +18,12 @@ from visualize import visualize_training_data
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 torch.manual_seed(0)
 
-datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
-'ElectricDevices', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll', 'WordsSynonyms'] 
-
+# datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
+# 'ElectricDevices', 'FordA', 'FordB', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll'] 
+datasets = ['Cricket_X']
 
 def get_lr(optimizer):
     """
@@ -31,6 +32,67 @@ def get_lr(optimizer):
     """
     for param_group in optimizer.param_groups:
         return param_group['lr']
+
+def train_one_epoch(model, optimizer, criterion, dataloader):
+    correct = 0
+    total_samples = 0
+    loss_total = 0
+    model.train()
+    for i, (x_batch, y_batch) in enumerate(dataloader):
+        # LSTM is trained batch_first False
+        x_batch = torch.swapaxes(x_batch, 0, 1).to(device)
+        y_batch = y_batch.to(device)
+        print("input shape", x_batch.shape)
+
+        optimizer.zero_grad()
+
+        out = model(x_batch)
+        loss = criterion(out, y_batch)
+        loss.backward()
+        optimizer.step()
+
+        # running loss
+        loss_total += loss.item()
+
+        # calculate correct predictions of the batch
+        _, pred = torch.max(out,1)
+        correct += (pred == y_batch).sum().item()
+        total_samples += len(y_batch)
+
+    # calculate total average train loss and train accuracy
+    train_loss = loss_total/ (i+1)
+    train_acc = correct / total_samples
+
+    return train_loss, train_acc
+
+# TODO: save predictions (in log file or with confusion flow)
+def evaluate(model, criterion, dataloader):
+    correct = 0
+    total_samples = 0
+    loss_total = 0
+
+    with torch.no_grad():
+        model.eval()
+        for i, (x_batch, y_batch) in enumerate(dataloader):
+            # LSTM is trained with batch_first=False
+            x_batch = torch.permute(x_batch, (1, 0, 2)).to(device)
+            y_batch = y_batch.to(device)
+            
+            out = model(x_batch)
+            loss = criterion(out, y_batch)
+
+            # running loss
+            loss_total += loss.item() 
+
+            # calculate correct predictions of the batch
+            _, pred = torch.max(out,1)
+            correct += (pred == y_batch).sum().item()
+            total_samples += len(y_batch)
+
+        val_loss = loss_total / (i+1)
+        val_acc = correct / total_samples            
+    
+    return val_loss, val_acc
 
 def train_model(model_id, model_name, dataset, hidden_size, n_layers, filters, positional_encoding, simplify, 
                      n_epochs=2000, batch_size=128, learning_rate=0.001): 
@@ -49,17 +111,20 @@ def train_model(model_id, model_name, dataset, hidden_size, n_layers, filters, p
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode="min",
-        factor=1. / np.cbrt(2),
-        patience=100,
-        min_lr=1e-4
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(n_epochs/4), eta_min=1e-4)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer,
+    #     mode="min",
+    #     factor=1. / np.cbrt(2),
+    #     patience=100,
+    #     min_lr=1e-4
+    # )
     criterion = torch.nn.CrossEntropyLoss()
 
-    start_time = time.time()
     best_val_acc = 0
+    old_lr = learning_rate
+    new_lr = learning_rate
+    start_time = time.time()
 
     for e in range(n_epochs):
         model.train()
@@ -84,7 +149,13 @@ def train_model(model_id, model_name, dataset, hidden_size, n_layers, filters, p
             loss.backward()
             optimizer.step()
 
-        scheduler.step(loss)
+        scheduler.step()
+        # reinitialze optimizer when lr is updated
+        # new_lr = get_lr(optimizer)
+        # if (old_lr != new_lr):
+        #     optimizer = torch.optim.Adam(model.parameters(), lr=new_lr)
+        # old_lr = new_lr
+
         train_loss_per_epoch = total_train_loss / (i+1)
         train_acc = correct / total_samples
 
@@ -122,8 +193,7 @@ def train_model(model_id, model_name, dataset, hidden_size, n_layers, filters, p
                            'train acc': train_acc, 'val acc': val_acc, 'lr': get_lr(optimizer)})
 
     df = pd.DataFrame(train_data)
-    print(df)
-    visualize_training_data(df, model_name, dataset, n_epochs)
+    # visualize_training_data(df, model_name, dataset, n_epochs)
     df.to_csv(os.path.join("logs", model_name + " " + dataset+ ".csv"))
 
     train_time = time.time() - start_time
@@ -207,10 +277,20 @@ def train_eval_loop(model_id, hidden_size, n_layers, filters, simplify, position
 
 if __name__ == "__main__":
 
-    hidden_size = 128
-    n_layers = 1    
+    hidden_size = [200, 100, 67, 50]
+    n_layers = [1, 2, 3, 4]    
     filters = [128, 256, 128]
 
-    for i in range(len(valid_models)):
-        train_eval_loop(i, hidden_size, n_layers, filters, simplify=False, positional_encoding=False)
-        train_eval_loop(i, hidden_size, n_layers, filters, simplify=False, positional_encoding=True)
+    # for hs in hidden_size:
+        # for nl in n_layers:
+
+    # train_eval_loop(1, 200, 4, filters, simplify=False, positional_encoding=True)
+    train_eval_loop(1, 200, 1, filters, simplify=False, positional_encoding=False)
+    train_eval_loop(1, 100, 2, filters, simplify=False, positional_encoding=False)
+    train_eval_loop(1, 67,  3, filters, simplify=False, positional_encoding=False)
+    train_eval_loop(1, 50,  4, filters, simplify=False, positional_encoding=False)
+
+
+    # FCN
+    # train_eval_loop(2, hidden_size, n_layers, filters, simplify=False, positional_encoding=False)
+    # train_eval_loop(2, hidden_size, n_layers, filters, simplify=False, positional_encoding=True)
