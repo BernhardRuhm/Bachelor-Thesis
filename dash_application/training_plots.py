@@ -1,21 +1,47 @@
 import plotly.graph_objects as go
 import plotly.subplots as ps
+import plotly.express as px
+import plotly.io as pio
+
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
-import plotly.io as pio
 
-# Assume you have your datasets and corresponding loss and learning rates defined somewhere
+import pandas as pd
+import os
 
-# Define your datasets
-datasets = {
-    'Dataset 1': {'train_loss': [1, 2, 3, 4], 'val_loss': [2, 3, 4, 5], 'learning_rate': [0.1, 0.2, 0.3, 0.4]},
-    'Dataset 2': {'train_loss': [3, 4, 5, 6], 'val_loss': [4, 5, 6, 7], 'learning_rate': [0.2, 0.3, 0.4, 0.5]}
-}
+dir = "../pytorch/experiments"
 
-# Create initial figures
-fig1 = ps.make_subplots(rows=1, cols=2, subplot_titles=('Train Loss', 'Validation Loss'))
-fig2 = go.Figure()
+experiments = [
+"LSTM_PosEnc HS:100 NL:4 05_06_2024_05:10:45",
+"LSTM_PosEnc HS:133 NL:3 05_06_2024_03:26:10",
+# "LSTM_PosEnc HS:200 NL:2 05_06_2024_02:50:00",
+"LSTM_PosEnc HS:400 NL:1 05_06_2024_02:16:42",
+"LSTM_PosEnc_BN:1 HS:100 NL:4 05_06_2024_08:58:06",
+"LSTM_PosEnc_BN:1 HS:133 NL:3 05_06_2024_07:09:10",
+"LSTM_PosEnc_BN:1 HS:200 NL:2 05_06_2024_06:25:38",
+"LSTM_PosEnc_BN:1 HS:400 NL:1 05_06_2024_05:45:38",
+"LSTM_PosEnc_BN:2 HS:100 NL:4 05_06_2024_12:57:08",
+"LSTM_PosEnc_BN:2 HS:133 NL:3 05_06_2024_10:58:32",
+"LSTM_PosEnc_BN:2 HS:200 NL:2 05_06_2024_10:15:35",
+"LSTM_PosEnc_BN:2 HS:400 NL:1 05_06_2024_09:37:34"
+]
+
+datasets = ['50words' ,'Cricket_X', 'NonInvasiveFatalECG_Thorax1'] 
+models = [
+    "hs:100  nl:4",
+    "hs:133  nl:3",
+    # "hs:200  nl:2",
+    "hs:400  nl:1",
+    "hs:100  nl:4 + BN",
+    "hs:133  nl:3 + BN",
+    "hs:200  nl:2 + BN",
+    "hs:400  nl:1 + BN",
+    "hs:100  nl:4 + BN affine",
+    "hs:133  nl:3 + BN affine",
+    "hs:200  nl:2 + BN affine",
+    "hs:400  nl:1 + BN affine",
+]
 
 # Define the Dash app
 app = dash.Dash(__name__)
@@ -25,40 +51,90 @@ server = app.server
 app.layout = html.Div([
     dcc.Dropdown(
         id='dataset-dropdown',
-        options=[{'label': dataset, 'value': dataset} for dataset in datasets.keys()],
-        value=list(datasets.keys())[0]  # default value
+        options=[{'label': dataset, 'value': dataset} for dataset in datasets],
+        value=datasets[0]  # default value
     ),
     dcc.Graph(id='loss-graph'),
-    dcc.Graph(id='learning-rate-graph')
+    dcc.Graph(id='accuracy-graph')
 ])
 
 # Define callback to update plots
 @app.callback(
     [Output('loss-graph', 'figure'),
-     Output('learning-rate-graph', 'figure')],
+     Output('accuracy-graph', 'figure')],
     [Input('dataset-dropdown', 'value')]
 )
 def update_plots(selected_dataset):
-    # Get the selected dataset
-    selected_data = datasets[selected_dataset]
-    
-    # Clear previous traces
-    fig1.data = []
-    fig2.data = []
+
+    # get data to be plotted
+    train_loss, val_loss, acc, lr = get_traindata(selected_dataset)    
+
+    fig1 = ps.make_subplots(rows=3, cols=1, row_heights=[1., 1. ,0.5], vertical_spacing=0.1,
+                        subplot_titles=('Train Loss', 'Validation Loss', "Learning Rate"))
     
     # Update subplots with selected data
-    fig1.add_trace(go.Scatter(x=list(range(len(selected_data['train_loss']))), y=selected_data['train_loss'], mode='lines', name='Train Loss'), row=1, col=1)
-    fig1.add_trace(go.Scatter(x=list(range(len(selected_data['val_loss']))), y=selected_data['val_loss'], mode='lines', name='Validation Loss'), row=1, col=2)
-    
-    fig2.add_trace(go.Scatter(x=list(range(len(selected_data['learning_rate']))), y=selected_data['learning_rate'], mode='lines', name='Learning Rate'))
-    
+    for i in range(len(train_loss.data)):
+        fig1.add_trace(train_loss.data[i], row=1, col=1)
+        fig1.add_trace(val_loss.data[i], row=2, col=1)
+
+    fig1.add_trace(lr.data[0], row=3, col=1)
+
     # Update layout
-    fig1.update_layout(title='Losses Plot')
-    fig2.update_layout(title='Learning Rate Plot')
+    fig1.update_xaxes(title_text='Epochs', tickfont=dict(size=14), row=1, col=1)
+    fig1.update_xaxes(title_text='Epochs', tickfont=dict(size=14), row=2, col=1)
+    fig1.update_xaxes(title_text='Epochs', tickfont=dict(size=14), row=3, col=1)
+    fig1.update_yaxes(title_text='Loss', tickfont=dict(size=14), row=1, col=1)
+    fig1.update_yaxes(title_text='Loss', tickfont=dict(size=14), row=2, col=1)
+    fig1.update_yaxes(title_text='Loss', tickfont=dict(size=14), row=3, col=1)
+
+    fig1.update_traces(showlegend=False, row=2, col=1)
+    fig1.update_layout(height=1200, width=1800, legend=dict(font=dict(size=18)))
+
+
+    fig2 = px.bar(pd.DataFrame({'model': models, 'accuracy': acc}), x='model', y='accuracy', color='accuracy')
+    fig2.update_xaxes(tickfont=dict(size=15), tickangle=0)
+    fig2.update_yaxes(tickfont=dict(size=15), range=[0., 1.])
+    fig2.update_layout(title='Accuracies')
     
     return fig1, fig2
 
+def get_traindata(dataset):
+
+    df_trainloss = []
+    df_valloss = []
+    acc = []
+
+    # extract train loss, val loss and accuracy of selected dataset over all experiments
+    for experiment in experiments:
+        dataset_file = os.path.join(dir, experiment, dataset + ".csv")
+
+        df = pd.read_csv(dataset_file, usecols=["train loss"])
+        df_trainloss.append(df)
+
+        df = pd.read_csv(dataset_file, usecols=["val loss"])
+        df_valloss.append(df)
+
+        result_file = os.path.join(dir, experiment, "results.csv")
+
+        df = pd.read_csv(result_file)
+        acc.extend(df[df['dataset'] == dataset]['accuracy'].values)
+
+
+    df_trainloss = pd.concat(df_trainloss, axis=1, ignore_index=True)
+    df_trainloss.columns = models
+
+    df_valloss= pd.concat(df_valloss, axis=1, ignore_index=True)
+    df_valloss.columns = models
+
+    # extract lr over epochs
+    df_lr = pd.read_csv(dataset_file, usecols=["lr"])
+
+    # convert to plotable data
+    train_loss = px.line(df_trainloss, x=df_trainloss.index, y=df_trainloss.columns)
+    val_loss = px.line(df_valloss, x=df_valloss.index, y=df_valloss.columns)
+    lr = px.line(df_lr, x=df_lr.index, y=df_lr.columns)
+
+    return train_loss, val_loss, acc, lr
+
 if __name__ == '__main__':
     app.run_server(debug=True, port=8050)
-    # Export Dash app to HTML
-    app.to_html("dash_app.html")
