@@ -10,6 +10,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 
+import torch
+import onnx
+from onnxsim import simplify
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 archiv_dir = os.path.join(current_dir, "../datasets/UCR_TS_Archive_2015/")
 models_dir = os.path.join(current_dir,"../models")
@@ -23,7 +27,7 @@ def get_data(name):
     X_train = data[:, 1:]
     return X_train, y_train
 
-def load_dataset(name, positional_encoding=False):
+def load_dataset(name, positional_encoding=False, min_max=False):
     """
     Loads a UCR dataset
 
@@ -46,6 +50,10 @@ def load_dataset(name, positional_encoding=False):
     # transform labels to start with 0
     y_train = transform_labels(y_train)
     y_test = transform_labels(y_test)
+
+    if min_max:
+        X_train = (X_train - X_train.min()) / (X_train.max() - X_train.min())
+        # X_test = (X_test - X_test.min()) / (X_test.max() - X_test.min())
 
     # if univariate, feature dimension is added
     if len(X_train.shape) == 2:
@@ -97,15 +105,25 @@ def get_all_datasets():
     return sorted(datasets)
 
 def create_results_csv(file_name):
-    df = pd.DataFrame(data=np.zeros((0, 3)), index=[],
-                      columns = ["dataset", "accuracy", "train time"])
+    df = pd.DataFrame(data=np.zeros((0, 4)), 
+                      columns = ["dataset", "accuracy", "peak accuracy", "train time"])
+    df.to_csv(file_name, index=False, header=True)
 
-    df.to_csv(file_name, index=False)
-
-def add_results(file_name, dataset, acc, time):
-    new_results = {"dataset": [dataset], "accuracy": [acc], "train time": [time]}
+def add_results(file_name, dataset, acc, peak_acc,time):
+    new_results = {"dataset": [dataset], "accuracy": [acc], "peak accuracy": [peak_acc], "train time": [time]}
     df = pd.DataFrame(new_results)
     df.to_csv(file_name, mode="a", index=False, header=False)
+
+def create_training_csv(file_name):
+    df = pd.DataFrame(data=np.zeros((0, 6)),
+                      columns = ["epoch", "train loss", "val loss", "train acc", "val acc", "lr"])
+    df.to_csv(file_name, index=False, header=True)
+
+def create_predictions_csv(file_name):
+    df = pd.DataFrame(data=np.zeros((0, 2)), index=[],
+                      columns = ["epoch", "predictions"])
+    df.to_csv(file_name, index=False, header=True)
+
 
 def calculate_eval_metrics(y_true, y_pred):
     acc = accuracy_score(y_true, y_pred)
@@ -132,3 +150,35 @@ def get_datasets_hiddensize(file_name):
             hidden_size = row[1]
             content.append((dataset, hidden_size))
     return content 
+
+
+def simplify_model(model_file):
+
+    onnx_model = onnx.load(model_file)
+    onnx_simplified, _ = simplify(onnx_model)
+
+    graph = onnx_simplified.graph
+    for node in graph.node:
+        if node.op_type == "LSTM":
+            # remove state outputs
+            del node.output[1]
+            del node.output[1]
+
+    onnx.save(onnx_simplified, model_file)
+
+def export_model(model_checkpoint, model_name, dataset, seq_len, input_dim, device):
+    
+    model = torch.load(model_checkpoint)
+    # export model to .onnx
+    dummy_input = torch.randn(seq_len, 1, input_dim).to(device)
+
+    model_file = os.path.join(models_dir, model_name + "_" + dataset + ".onnx")
+    onnx_model = torch.onnx.export(model, 
+                                     dummy_input, 
+                                     model_file,
+                                     export_params=True,
+                                     input_names =  ["input"],
+                                     output_names =  ["output"])
+
+    if simplify:
+        simplify_model(model_file)
