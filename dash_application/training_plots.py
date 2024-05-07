@@ -15,32 +15,28 @@ dir = "../pytorch/experiments"
 experiments = [
 "LSTM_PosEnc HS:100 NL:4 05_06_2024_05:10:45",
 "LSTM_PosEnc HS:133 NL:3 05_06_2024_03:26:10",
-# "LSTM_PosEnc HS:200 NL:2 05_06_2024_02:50:00",
+"LSTM_PosEnc HS:200 NL:2 05_06_2024_02:50:00",
 "LSTM_PosEnc HS:400 NL:1 05_06_2024_02:16:42",
 "LSTM_PosEnc_BN:1 HS:100 NL:4 05_06_2024_08:58:06",
 "LSTM_PosEnc_BN:1 HS:133 NL:3 05_06_2024_07:09:10",
 "LSTM_PosEnc_BN:1 HS:200 NL:2 05_06_2024_06:25:38",
-"LSTM_PosEnc_BN:1 HS:400 NL:1 05_06_2024_05:45:38",
-"LSTM_PosEnc_BN:2 HS:100 NL:4 05_06_2024_12:57:08",
-"LSTM_PosEnc_BN:2 HS:133 NL:3 05_06_2024_10:58:32",
-"LSTM_PosEnc_BN:2 HS:200 NL:2 05_06_2024_10:15:35",
-"LSTM_PosEnc_BN:2 HS:400 NL:1 05_06_2024_09:37:34"
+"LSTM_PosEnc_BN:1 HS:400 NL:1 05_06_2024_05:45:38"
+# "LSTM_PosEnc_BN:2 HS:100 NL:4 05_06_2024_12:57:08",
+# "LSTM_PosEnc_BN:2 HS:133 NL:3 05_06_2024_10:58:32",
+# "LSTM_PosEnc_BN:2 HS:200 NL:2 05_06_2024_10:15:35",
+# "LSTM_PosEnc_BN:2 HS:400 NL:1 05_06_2024_09:37:34"
 ]
 
 datasets = ['50words' ,'Cricket_X', 'NonInvasiveFatalECG_Thorax1'] 
 models = [
     "hs:100  nl:4",
     "hs:133  nl:3",
-    # "hs:200  nl:2",
+    "hs:200  nl:2",
     "hs:400  nl:1",
     "hs:100  nl:4 + BN",
     "hs:133  nl:3 + BN",
     "hs:200  nl:2 + BN",
-    "hs:400  nl:1 + BN",
-    "hs:100  nl:4 + BN affine",
-    "hs:133  nl:3 + BN affine",
-    "hs:200  nl:2 + BN affine",
-    "hs:400  nl:1 + BN affine",
+    "hs:400  nl:1 + BN"
 ]
 
 # Define the Dash app
@@ -71,6 +67,7 @@ def update_plots(selected_dataset):
 
     fig1 = ps.make_subplots(rows=3, cols=1, row_heights=[1., 1. ,0.5], vertical_spacing=0.1,
                         subplot_titles=('Train Loss', 'Validation Loss', "Learning Rate"))
+
     
     # Update subplots with selected data
     for i in range(len(train_loss.data)):
@@ -78,7 +75,6 @@ def update_plots(selected_dataset):
         fig1.add_trace(val_loss.data[i], row=2, col=1)
 
     fig1.add_trace(lr.data[0], row=3, col=1)
-
     # Update layout
     fig1.update_xaxes(title_text='Epochs', tickfont=dict(size=14), row=1, col=1)
     fig1.update_xaxes(title_text='Epochs', tickfont=dict(size=14), row=2, col=1)
@@ -88,13 +84,22 @@ def update_plots(selected_dataset):
     fig1.update_yaxes(title_text='Loss', tickfont=dict(size=14), row=3, col=1)
 
     fig1.update_traces(showlegend=False, row=2, col=1)
-    fig1.update_layout(height=1200, width=1800, legend=dict(font=dict(size=18)))
+    fig1.update_traces(showlegend=False, row=3, col=1)
+    fig1.update_traces(hoverinfo='y', hovertemplate="<br>".join([
+        "loss: %{y}"
+        # "epoch: %{x}",
+        # "trace: %{customdata}"
+    ]))
+
+    fig1.update_annotations(font_size=18)
+    fig1.update_layout(height=1200, width=1600, legend=dict(font=dict(size=18)))
+
 
 
     fig2 = px.bar(pd.DataFrame({'model': models, 'accuracy': acc}), x='model', y='accuracy', color='accuracy')
     fig2.update_xaxes(tickfont=dict(size=15), tickangle=0)
     fig2.update_yaxes(tickfont=dict(size=15), range=[0., 1.])
-    fig2.update_layout(title='Accuracies')
+    fig2.update_layout(title='Accuracies of all models', width=1500)
     
     return fig1, fig2
 
