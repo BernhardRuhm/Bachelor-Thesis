@@ -9,6 +9,7 @@ from torch.nn import Parameter
 
 from typing import List, Tuple
 
+
 def init_weights(m):
     if isinstance(m, nn.Linear):
         # same as glorot uniform
@@ -30,6 +31,7 @@ def init_weights(m):
             elif 'bias_ih' in name:
                 param.data.fill_(0)
                 n = param.size(0)
+                # forget gate bias set to 1
                 param.data[(n // 4):(n // 2)].fill_(1)
             elif 'bias_hh' in name:
                 param.data.fill_(0)
@@ -97,7 +99,7 @@ class VanillaDense(nn.Module):
 
 
 class LSTMFCN(nn.Module):
-    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, filters, kernels):
+    def __init__(self, device, input_dim, n_classes, hidden_size=128, n_layers=1, filters=[128, 256, 128], kernels=[3, 5, 8]):
         super().__init__()
         self.device = device
         self.input_dim = input_dim
@@ -138,22 +140,41 @@ class LSTMFCN(nn.Module):
        
         y = torch.cat((y1, y2), dim=1)
         y = self.dense(y)
-        y = self.softmax(y)
         return y
 
 class LSTM(nn.Module):
-    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, filters, kernels):
+    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, batch_norm=0):
         super().__init__()
         self.device = device
         self.input_dim = input_dim
         self.hidden_size = hidden_size
         self.n_layers = n_layers
-        
-        self.lstm = nn.LSTM(input_dim, hidden_size, num_layers=n_layers, batch_first=False)
-        self.dropout = nn.Dropout(p=0.8)
+        self.batch_norm_type = batch_norm
+
+        self.lstm = nn.ModuleList() 
+        self.bn = nn.ModuleList()
+
+        for i in range(n_layers):
+            if i==0:
+                self.lstm.append(nn.LSTM(input_dim, hidden_size))
+            else:
+                self.lstm.append(nn.LSTM(hidden_size, hidden_size))
+            
+            if batch_norm == 1: 
+                self.bn.append(nn.BatchNorm1d(hidden_size, affine=False))
+            elif batch_norm == 2:
+                self.bn.append(nn.BatchNorm1d(hidden_size, affine=True))
+            elif batch_norm == 3:
+                self.bn.append(nn.LayerNorm(hidden_size))
+            elif batch_norm == 4:
+                # skip prenorm before first LSTM layer
+                if i == 0:
+                    self.bn.append(nn.LayerNorm([input_dim]))
+                else:
+                    self.bn.append(nn.LayerNorm(hidden_size))
+        # self.lstm = nn.LSTM(input_dim, hidden_size, num_layers=n_layers, batch_first=False)
 
         self.dense = nn.Linear(hidden_size , n_classes)
-        self.softmax = nn.Softmax(dim=1)
 
     def init_hidden_states(self, batch_size):
         h = torch.zeros(self.n_layers, batch_size, self.hidden_size).to(self.device)
@@ -161,19 +182,26 @@ class LSTM(nn.Module):
         return (h, c)
 
     def forward(self, x):
-        states = self.init_hidden_states(x.shape[1]) 
+        h0, c0 = self.init_hidden_states(x.shape[1]) 
 
-        y, _ = self.lstm(x, states)
-        y = y[-1, :]
-        # y = self.dropout(y)
+        for i in range(self.n_layers):
+            if self.batch_norm_type == 1 or self.batch_norm_type == 2:
+                x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
+                x = self.bn[i](x.permute(1, 2, 0)).permute(2, 0, 1)
+            elif self.batch_norm_type == 3:
+                x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
+                x = self.bn[i](x.permute(1, 0, 2)).permute(1, 0, 2)
+            elif self.batch_norm_type == 4:
+                x = self.bn[i](x.permute(1, 0, 2)).permute(1, 0, 2)
+                x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
 
+
+        y = x[-1, :]
         y = self.dense(y)
-        y = self.softmax(y)
-
         return y
 
 class FCN(nn.Module):
-    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, filters, kernels):
+    def __init__(self, device, input_dim,  n_classes, filters=[128, 256, 128], kernels=[3, 5, 8]):
         super().__init__()
         self.device = device
         self.input_dim = input_dim
@@ -197,9 +225,30 @@ class FCN(nn.Module):
         y = torch.mean(y, 2)
        
         y = self.dense(y)
-        y = self.softmax(y)
 
         return y
+
+# class BNLSTMCell(nn.Module):
+#     def __init__(self, input_dim, hidden_size, n_layers):
+#         self.input_dim = input_dim
+#         self.hidden_size = hidden_size
+#         self.weight_ih = nn.Parameter()
+#         self.weight_hh = nn.Parameter()
+#         self.bias_ih = nn.Parameter()
+#         self.bias_hh = nn.Parameter()
+
+#     def forward():
+#         pass
+
+def generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm):
+    if model_name == "LSTMFCN":
+        model = LSTMFCN(device, input_dim, n_classes)
+    elif model_name == "FCN":
+        model = FCN(device, input_dim, n_classes)
+    elif model_name ==  "LSTM":
+        model = LSTM(device, input_dim, hidden_size, n_classes, n_layers, batch_norm)
+
+    return model
 
 valid_models = [
     ("LSTMFCN", LSTMFCN),

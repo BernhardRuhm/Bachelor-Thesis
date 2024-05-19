@@ -10,6 +10,10 @@ import torch
 import onnx
 from onnxsim import simplify
 
+
+from confusionflow.logging.logfunction import log_epoch
+from confusionflow.logging import Fold, Run
+
 from dataloader import get_Dataloaders
 from models import valid_models, LSTMFCN, init_weights, generate_model
 
@@ -24,7 +28,8 @@ torch.manual_seed(0)
 
 # datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
 # 'ElectricDevices', 'FordA', 'FordB', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll'] 
-datasets = ['ChlorineConcentration', 'ElectricDevices', 'FordA', 'UWaveGestureLibraryAll'] 
+# datasets = ['ChlorineConcentration', 'ElectricDevices', 'FordA', 'UWaveGestureLibraryAll'] 
+datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1']
 
 def main():
 
@@ -37,6 +42,7 @@ def main():
     batch_norm = args.batch_norm
     positional_encoding = args.positional_encoding
     export = args.export
+    use_confusionflow = args.confusionflow
 
     learning_rate = 1e-3
 
@@ -78,6 +84,13 @@ def main():
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(epochs/4), eta_min=1e-4)
         criterion = torch.nn.CrossEntropyLoss()
 
+        # specify confusion flow folds and run
+        if use_confusionflow:
+            dl_train_log, dl_test_log, _ = get_Dataloaders(ds, batch_size, positional_encoding)
+            train_fold = Fold(data=dl_train_log, foldId='ED_train', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
+            test_fold = Fold(data=dl_test_log, foldId='ED_test', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
+            run = Run(runId='example_confusionflow', folds=[train_fold, test_fold], trainfoldId='ED_train')
+
         best_train_loss = 1e3
         best_val_acc = 0 
         peak_val_acc = 0
@@ -86,6 +99,10 @@ def main():
         print("Training: %s %s" % (model_name, ds))
 
         for e in range(epochs):
+
+            if use_confusionflow:
+                log_epoch(run, model, device, e, numclass=n_classes)
+
             train_loss, train_acc = train_one_epoch(model, optimizer, criterion, dl_train)            
             val_loss, val_acc, predictions = evaluate(model, criterion, dl_test)
             scheduler.step()
@@ -117,6 +134,9 @@ def main():
 
         if export:
             export_model(checkpoint_path, model_name, ds, seq_len, input_dim, device)
+
+        if use_confusionflow:
+            run.export(logdir='confusionflow_logs')
 
 def get_lr(optimizer):
     """
@@ -165,7 +185,7 @@ def evaluate(model, criterion, dataloader):
     loss_total = 0
 
     with torch.no_grad():
-        model.eval()
+        # model.eval()
         total_predictions = []
         for i, (x_batch, y_batch) in enumerate(dataloader):
             # LSTM is trained with batch_first=False
@@ -195,7 +215,7 @@ def test_model(model_name, dataset, positional_encoding, batch_size=128):
     
     model = torch.load(os.path.join("checkpoints", model_name))
 
-    model.eval()
+    # model.eval()
     correct = 0
     total = 0
     
@@ -221,10 +241,11 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
     parser.add_argument('--hidden_size', type=int, default=150, help='Number of hidden units per LSTM layer')
     parser.add_argument('--n_layers', type=int, default=1, help='Number of sequential LSTM cells')
-    parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2], 
+    parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2, 3, 4], 
                         help='Normalization used after each LSTM layer. 0: no normalization. 1: Batchnorm1d with affine False. 2: Batchnorm1d with affine True')
     parser.add_argument('--positional_encoding', default=False, action='store_true', help='Defines if positional encoding is added to the input features')
     parser.add_argument('--export', default=False, action='store_true', help='Defines if model should be exported as .onnx')
+    parser.add_argument('--confusionflow', default=False, action='store_true')
 
     args = parser.parse_args()
     main()
