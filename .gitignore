@@ -10,3 +10,4 @@ env/
 pytorch/checkpoints/
 pytorch/logs/
 pytorch/results/
+results/
