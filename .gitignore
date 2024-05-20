@@ -1,0 +1,12 @@
+__pycache__/
+
+datasets/
+models_old/ 
+models/
+krempel/
+datasets/
+resources/
+env/
+pytorch/checkpoints/
+pytorch/logs/
+pytorch/results/
