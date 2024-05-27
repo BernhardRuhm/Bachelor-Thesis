@@ -45,16 +45,15 @@ def gen_lstmfcn(input_dim, seq_len, n_layers, hidden_size, n_classes, batch_size
     x = LSTM(hidden_size)(ip)
     x = Dropout(0.8)(x)
 
-    # y = Permute((2, 1))(ip)
-    y = Conv1D(32, 8, padding='same', kernel_initializer='he_uniform')(ip)
+    y = Conv1D(128, 8, padding='same', kernel_initializer='he_uniform')(ip)
     y = BatchNormalization()(y)
     y = Activation('relu')(y)
 
-    y = Conv1D(64, 5, padding='same', kernel_initializer='he_uniform')(y)
+    y = Conv1D(256, 5, padding='same', kernel_initializer='he_uniform')(y)
     y = BatchNormalization()(y)
     y = Activation('relu')(y)
 
-    y = Conv1D(32, 3, padding='same', kernel_initializer='he_uniform')(y)
+    y = Conv1D(128, 3, padding='same', kernel_initializer='he_uniform')(y)
     y = BatchNormalization()(y)
     y = Activation('relu')(y)
 
@@ -69,7 +68,7 @@ def gen_lstmfcn(input_dim, seq_len, n_layers, hidden_size, n_classes, batch_size
 
 
 valid_models = [
-    ("lstm_fcn", gen_lstmfcn),
+    ("LSTMFCN", gen_lstmfcn),
     ("vanilla_lstm", gen_vanilla_dense), 
     ("focused_lstm", gen_focused_dense)
 ]
