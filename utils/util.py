@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
+from sklearn.model_selection import train_test_split
 
 import torch
 import onnx
@@ -27,7 +28,7 @@ def get_data(name):
     X_train = data[:, 1:]
     return X_train, y_train
 
-def load_dataset(name, positional_encoding=False, min_max=False):
+def load_dataset(name, positional_encoding=False, normalized=False, custom_split=False, augmentation=None):
     """
     Loads a UCR dataset
 
@@ -51,18 +52,37 @@ def load_dataset(name, positional_encoding=False, min_max=False):
     y_train = transform_labels(y_train)
     y_test = transform_labels(y_test)
 
-    if min_max:
-        X_train = (X_train - X_train.min()) / (X_train.max() - X_train.min())
-        # X_test = (X_test - X_test.min()) / (X_test.max() - X_test.min())
+    # scale data between -1 and 1
+    if normalized:
+        X_train_max = X_train.max()
+        X_train_min = X_train.min()
+
+        X_train = 2. * (X_train - X_train_min) / (X_train_max - X_train_min) - 1
+        X_test = 2. * (X_test - X_train_min) / (X_train_max - X_train_min) - 1
 
     # if univariate, feature dimension is added
     if len(X_train.shape) == 2:
         X_train = np.expand_dims(X_train, axis=2)
         X_test = np.expand_dims(X_test, axis=2)
 
+    # Add additional positional encoding features
     if positional_encoding:
         X_train = embed_positional_features(X_train)
         X_test = embed_positional_features(X_test)
+
+    # Manually split data, otherwise pre-splits are used
+    if custom_split:
+        X_combined = np.concatenate((X_train, X_test), axis=0)
+        y_combined = np.concatenate((y_train, y_test), axis=0)
+
+        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=0.2, shuffle=True, random_state=1)
+
+
+    if augmentation == 'jitter':
+        X_train = jitter(X_train)
+    elif augmentation == 'window_warp':
+        X_train = window_warp(X_train)
+
     return (X_train, y_train), (X_test, y_test) 
 
 
@@ -140,6 +160,29 @@ def embed_positional_features(data):
     positional_features[:, :, 1] = (np.cos(2*np.pi/seq_len * np.arange(seq_len)) + 1) * 0.5
 
     return np.concatenate((data, positional_features), axis=-1) 
+
+def jitter(x, sigma=0.03):
+    # https://arxiv.org/pdf/1706.00527.pdf
+    return x + np.random.normal(loc=0., scale=sigma, size=x.shape)
+
+def window_warp(x, window_ratio=0.1, scales=[0.5, 2.]):
+    # https://halshs.archives-ouvertes.fr/halshs-01357973/document
+    warp_scales = np.random.choice(scales, x.shape[0])
+    warp_size = np.ceil(window_ratio*x.shape[1]).astype(int)
+    window_steps = np.arange(warp_size)
+        
+    window_starts = np.random.randint(low=1, high=x.shape[1]-warp_size-1, size=(x.shape[0])).astype(int)
+    window_ends = (window_starts + warp_size).astype(int)
+            
+    ret = np.zeros_like(x)
+    for i, pat in enumerate(x):
+        for dim in range(x.shape[2]):
+            start_seg = pat[:window_starts[i],dim]
+            window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, pat[window_starts[i]:window_ends[i],dim])
+            end_seg = pat[window_ends[i]:,dim]
+            warped = np.concatenate((start_seg, window_seg, end_seg))                
+            ret[i,:,dim] = np.interp(np.arange(x.shape[1]), np.linspace(0, x.shape[1]-1., num=warped.size), warped).T
+    return ret
 
 def get_datasets_hiddensize(file_name):
     content = []
