@@ -22,7 +22,7 @@ class UCRDataset(Dataset):
 
 def get_Dataloaders(dataset, batch_size, positional_encoding):
 
-    (X_train, y_train), (X_test, y_test) = load_dataset(dataset, positional_encoding)
+    (X_train, y_train), (X_test, y_test) = load_dataset(dataset, positional_encoding, min_max=False)
 
     seq_len, input_dim, n_classes = extract_metrics(X_train, y_train)
 

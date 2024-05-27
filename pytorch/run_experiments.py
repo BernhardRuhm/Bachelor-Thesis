@@ -16,16 +16,16 @@ experiment3 = [
     "--hidden_size=133",
     "--n_layers=3",
     "--positional_encoding",
-    "--batch_norm=4",
+    "--batch_norm=5"
 ]
 experiment4 = [
     "--hidden_size=100",
     "--n_layers=4",
     "--positional_encoding",
-    "--batch_norm=4"
+    "--batch_norm=5"
 ]
 
-experiments = [experiment3, experiment4]
+experiments = [experiment3]
 
 # for i in range(3):
 for args in  experiments:

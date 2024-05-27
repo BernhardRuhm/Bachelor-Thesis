@@ -151,15 +151,23 @@ class LSTM(nn.Module):
         self.n_layers = n_layers
         self.batch_norm_type = batch_norm
 
+        self.cnn = nn.Conv1d(input_dim, 128, 7, padding="same")
+        self.cnn_ln = nn.LayerNorm(32)
+        self.relu = nn.ReLU()
+
         self.lstm = nn.ModuleList() 
         self.bn = nn.ModuleList()
+        self.dropout = nn.ModuleList()
+
 
         for i in range(n_layers):
+            # Create LSTM Module List
             if i==0:
-                self.lstm.append(nn.LSTM(input_dim, hidden_size))
+                self.lstm.append(nn.LSTM(128, hidden_size))
             else:
                 self.lstm.append(nn.LSTM(hidden_size, hidden_size))
-            
+
+            # Create Normalization Module List 
             if batch_norm == 1: 
                 self.bn.append(nn.BatchNorm1d(hidden_size, affine=False))
             elif batch_norm == 2:
@@ -167,11 +175,20 @@ class LSTM(nn.Module):
             elif batch_norm == 3:
                 self.bn.append(nn.LayerNorm(hidden_size))
             elif batch_norm == 4:
-                # skip prenorm before first LSTM layer
                 if i == 0:
-                    self.bn.append(nn.LayerNorm([input_dim]))
+                    self.bn.append(nn.LayerNorm(input_dim))
                 else:
                     self.bn.append(nn.LayerNorm(hidden_size))
+            elif batch_norm == 5:
+                if i == 0:
+                    self.bn.append(nn.LayerNorm(128))
+                else:
+                    self.bn.append(nn.LayerNorm(hidden_size))
+
+            # Create Dropout Module List
+            # if i != self.n_layers - 1:
+            self.dropout.append(nn.Dropout(0.3))
+
         # self.lstm = nn.LSTM(input_dim, hidden_size, num_layers=n_layers, batch_first=False)
 
         self.dense = nn.Linear(hidden_size , n_classes)
@@ -184,6 +201,11 @@ class LSTM(nn.Module):
     def forward(self, x):
         h0, c0 = self.init_hidden_states(x.shape[1]) 
 
+        # x = x.permute(1, 2, 0)
+        # x = self.cnn(x)
+        # x = F.relu(x)
+        # x = x.permute(2, 0, 1) 
+
         for i in range(self.n_layers):
             if self.batch_norm_type == 1 or self.batch_norm_type == 2:
                 x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
@@ -194,7 +216,11 @@ class LSTM(nn.Module):
             elif self.batch_norm_type == 4:
                 x = self.bn[i](x.permute(1, 0, 2)).permute(1, 0, 2)
                 x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
-
+            elif self.batch_norm_type == 5:
+                x = self.bn[i](x.permute(1, 0, 2)).permute(1, 0, 2)
+                x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
+                # if i != self.n_layers - 1:
+                x = self.dropout[i](x)
 
         y = x[-1, :]
         y = self.dense(y)

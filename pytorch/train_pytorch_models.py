@@ -29,7 +29,8 @@ torch.manual_seed(0)
 # datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
 # 'ElectricDevices', 'FordA', 'FordB', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll'] 
 # datasets = ['ChlorineConcentration', 'ElectricDevices', 'FordA', 'UWaveGestureLibraryAll'] 
-datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1']
+datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FordA', 'FaceAll', 'PhalangesOutlinesCorrect', 'ShapesAll', 'wafer']
+# datasets = ["FaceAll"]
 
 def main():
 
@@ -81,7 +82,7 @@ def main():
         print(model)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(epochs/4), eta_min=1e-4)
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(epochs / 4), eta_min=1e-4)
         criterion = torch.nn.CrossEntropyLoss()
 
         # specify confusion flow folds and run
@@ -105,7 +106,7 @@ def main():
 
             train_loss, train_acc = train_one_epoch(model, optimizer, criterion, dl_train)            
             val_loss, val_acc, predictions = evaluate(model, criterion, dl_test)
-            scheduler.step()
+            # scheduler.step()
 
             if e % 10 == 0:
                 print("Epoch:", e, "train_loss:", train_loss, "val_acc:", val_acc, "lr:", get_lr(optimizer), "\n")
@@ -241,7 +242,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
     parser.add_argument('--hidden_size', type=int, default=150, help='Number of hidden units per LSTM layer')
     parser.add_argument('--n_layers', type=int, default=1, help='Number of sequential LSTM cells')
-    parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2, 3, 4], 
+    parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2, 3, 4, 5], 
                         help='Normalization used after each LSTM layer. 0: no normalization. 1: Batchnorm1d with affine False. 2: Batchnorm1d with affine True')
     parser.add_argument('--positional_encoding', default=False, action='store_true', help='Defines if positional encoding is added to the input features')
     parser.add_argument('--export', default=False, action='store_true', help='Defines if model should be exported as .onnx')
