@@ -28,7 +28,7 @@ def get_data(name):
     X_train = data[:, 1:]
     return X_train, y_train
 
-def load_dataset(name, positional_encoding=False, normalized=False, custom_split=False, augmentation=None):
+def load_dataset(name, custom_split, positional_encoding=False, normalized=False, augmentation=None):
     """
     Loads a UCR dataset
 
@@ -71,12 +71,11 @@ def load_dataset(name, positional_encoding=False, normalized=False, custom_split
         X_test = embed_positional_features(X_test)
 
     # Manually split data, otherwise pre-splits are used
-    if custom_split:
+    if custom_split > 0.:
         X_combined = np.concatenate((X_train, X_test), axis=0)
         y_combined = np.concatenate((y_train, y_test), axis=0)
 
-        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=0.2, shuffle=True, random_state=1)
-
+        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=custom_split, shuffle=True, random_state=0)
 
     if augmentation == 'jitter':
         X_train = jitter(X_train)

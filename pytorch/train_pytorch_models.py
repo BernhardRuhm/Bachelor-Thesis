@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 import time 
 from argparse import ArgumentParser
 from datetime import datetime
@@ -25,22 +26,25 @@ from visualize import visualize_training_data
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # print(device)
 torch.manual_seed(0)
+np.random.seed(0)
 
 # datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
 # 'ElectricDevices', 'FordA', 'FordB', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll'] 
 # datasets = ['ChlorineConcentration', 'ElectricDevices', 'FordA', 'UWaveGestureLibraryAll'] 
-datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FordA', 'FaceAll', 'PhalangesOutlinesCorrect', 'ShapesAll', 'wafer']
-# datasets = ["FaceAll"]
+# datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FordA', 'FaceAll', 'PhalangesOutlinesCorrect', 'ShapesAll', 'wafer']
+datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'PhalangesOutlinesCorrect', 'FaceAll', 'wafer']
 
 def main():
 
     # device = torch.device('cuda:0' if torch.cuda.is_available() and args.device == 'cuda:0' else 'cpu')
     model_name = args.model
+    add_conv = args.conv
     epochs = args.epochs
     batch_size = args.batch_size
     hidden_size = args.hidden_size
     n_layers = args.n_layers
     batch_norm = args.batch_norm
+    custom_split = args.custom_split
     positional_encoding = args.positional_encoding
     export = args.export
     use_confusionflow = args.confusionflow
@@ -63,6 +67,9 @@ def main():
     experiment_path = os.path.join('experiments', path_prefix + path_suffix)
     os.makedirs(experiment_path, exist_ok=True) 
 
+    with open(os.path.join(experiment_path,'args.txt'), 'w') as f:
+        json.dump(vars(args), f, indent=4)
+
     result_file = os.path.join(experiment_path, 'results.csv')
     create_results_csv(result_file)
 
@@ -74,15 +81,15 @@ def main():
         training_file = os.path.join(experiment_path, ds + ".csv") 
         create_training_csv(training_file)
 
-        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding)
+        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding, custom_split)
         seq_len, input_dim, n_classes = metrics
 
-        model = generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm) 
+        model = generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm, add_conv) 
         model.to(device)
         print(model)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(epochs / 4), eta_min=1e-4)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(epochs / 4), eta_min=1e-4)
         criterion = torch.nn.CrossEntropyLoss()
 
         # specify confusion flow folds and run
@@ -106,7 +113,7 @@ def main():
 
             train_loss, train_acc = train_one_epoch(model, optimizer, criterion, dl_train)            
             val_loss, val_acc, predictions = evaluate(model, criterion, dl_test)
-            # scheduler.step()
+            scheduler.step()
 
             if e % 10 == 0:
                 print("Epoch:", e, "train_loss:", train_loss, "val_acc:", val_acc, "lr:", get_lr(optimizer), "\n")
@@ -238,12 +245,14 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--device', type=str, default='cuda:0', help='Selected device')
     parser.add_argument('--model', type=str, default="LSTM", help='Model to be trained')
+    parser.add_argument('--conv', action='store_true', default=False)
     parser.add_argument('--epochs', type=int, default=2000, help='Number of training epochs')
     parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
     parser.add_argument('--hidden_size', type=int, default=150, help='Number of hidden units per LSTM layer')
     parser.add_argument('--n_layers', type=int, default=1, help='Number of sequential LSTM cells')
     parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2, 3, 4, 5], 
                         help='Normalization used after each LSTM layer. 0: no normalization. 1: Batchnorm1d with affine False. 2: Batchnorm1d with affine True')
+    parser.add_argument('--custom_split', type=float, default=0.)
     parser.add_argument('--positional_encoding', default=False, action='store_true', help='Defines if positional encoding is added to the input features')
     parser.add_argument('--export', default=False, action='store_true', help='Defines if model should be exported as .onnx')
     parser.add_argument('--confusionflow', default=False, action='store_true')

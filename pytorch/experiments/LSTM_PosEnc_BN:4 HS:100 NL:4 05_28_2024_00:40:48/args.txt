@@ -1,0 +1,14 @@
+{
+    "device": "cuda:0",
+    "model": "LSTM",
+    "conv": false,
+    "epochs": 2000,
+    "batch_size": 128,
+    "hidden_size": 100,
+    "n_layers": 4,
+    "batch_norm": 4,
+    "custom_split": 0.0,
+    "positional_encoding": true,
+    "export": false,
+    "confusionflow": false
+}
