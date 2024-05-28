@@ -1,31 +1,15 @@
-import numpy as np
-
 from util import load_dataset
+import matplotlib.pyplot as plt
 
-(X_train, y_train), (X_test, y_test) = load_dataset("ElectricDevices")
+(X_train, y_train), (X_test, y_test) = load_dataset("FordA", normalized=True, custom_split=True)
 
-print(y_train.shape)
-unique_classes = np.unique(y_train)
+(X_train_jitter, y_train_jitter), _ = load_dataset("FordA", normalized=True,custom_split=True, augmentation='window_warp')
 
-# Initialize a dictionary to store the count of samples for each class
-class_counts = {class_label: 0 for class_label in unique_classes}
 
-# Count the number of samples for each class
-for sample in y_train:
-    class_counts[sample] += 1
+plt.plot(X_train_jitter[3], label='warping')
+plt.plot((X_train[3]), label='normal')
+plt.legend()
+plt.show()
 
-print(unique_classes)
-print(class_counts)
 
-print(y_test.shape)
-unique_classes = np.unique(y_test)
 
-# Initialize a dictionary to store the count of samples for each class
-class_counts = {class_label: 0 for class_label in unique_classes}
-
-# Count the number of samples for each class
-for sample in y_test:
-    class_counts[sample] += 1
-
-print(unique_classes)
-print(class_counts)

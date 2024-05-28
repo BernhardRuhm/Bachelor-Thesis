@@ -1,7 +1,7 @@
 import sys
 import os
-import json
 import time 
+import json
 from argparse import ArgumentParser
 from datetime import datetime
 
@@ -24,33 +24,40 @@ from visualize import visualize_training_data
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# print(device)
 torch.manual_seed(0)
-np.random.seed(0)
 
 # datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
 # 'ElectricDevices', 'FordA', 'FordB', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll'] 
 # datasets = ['ChlorineConcentration', 'ElectricDevices', 'FordA', 'UWaveGestureLibraryAll'] 
-# datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FordA', 'FaceAll', 'PhalangesOutlinesCorrect', 'ShapesAll', 'wafer']
-datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'PhalangesOutlinesCorrect', 'FaceAll', 'wafer']
+datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FordA', 'FaceAll', 'PhalangesOutlinesCorrect', 'ShapesAll', 'wafer']
+# datasets = ["FaceAll"]
 
 def main():
-
-    # device = torch.device('cuda:0' if torch.cuda.is_available() and args.device == 'cuda:0' else 'cpu')
+   
+    # model args 
     model_name = args.model
-    add_conv = args.conv
-    epochs = args.epochs
-    batch_size = args.batch_size
     hidden_size = args.hidden_size
     n_layers = args.n_layers
     batch_norm = args.batch_norm
-    custom_split = args.custom_split
+    dropout = args.dropout
+    weight_decay = args.weight_decay
+
+    # training args 
+    epochs = args.epochs
+    batch_size = args.batch_size
+    learning_rate = args.learning_rate
+
+    # input manipulation args
     positional_encoding = args.positional_encoding
+    custom_split = args.custom_split
+    augmentation_type = args.augmentation_type
+    augmentation_ratio = args.augmentation_ratio
+
+    # util args
     export = args.export
     use_confusionflow = args.confusionflow
 
-    learning_rate = 1e-3
-
+    # create experiment path
     time_stamp = datetime.now().strftime("%m_%d_%Y_%H:%M:%S") 
     path_suffix = " HS:" + str(hidden_size) + " NL:" + str(n_layers) + " " + time_stamp
     path_prefix = model_name
@@ -67,12 +74,14 @@ def main():
     experiment_path = os.path.join('experiments', path_prefix + path_suffix)
     os.makedirs(experiment_path, exist_ok=True) 
 
+    # Write args of experiment to a file
     with open(os.path.join(experiment_path,'args.txt'), 'w') as f:
         json.dump(vars(args), f, indent=4)
 
     result_file = os.path.join(experiment_path, 'results.csv')
     create_results_csv(result_file)
 
+    # Iterate through datasets
     for ds in sorted(datasets):
 
         predictions_file = os.path.join(experiment_path, ds + "_pred.csv") 
@@ -81,20 +90,20 @@ def main():
         training_file = os.path.join(experiment_path, ds + ".csv") 
         create_training_csv(training_file)
 
-        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding, custom_split)
+        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding, custom_split, augmentation_type, augmentation_ratio)
         seq_len, input_dim, n_classes = metrics
 
-        model = generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm, add_conv) 
+        model = generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm, dropout) 
         model.to(device)
         print(model)
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(epochs / 4), eta_min=1e-4)
         criterion = torch.nn.CrossEntropyLoss()
 
         # specify confusion flow folds and run
         if use_confusionflow:
-            dl_train_log, dl_test_log, _ = get_Dataloaders(ds, batch_size, positional_encoding)
+            dl_train_log, dl_test_log, _ = get_Dataloaders(ds, batch_size, positional_encoding, custom_split, augmentation_type, augmentation_ratio)
             train_fold = Fold(data=dl_train_log, foldId='ED_train', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
             test_fold = Fold(data=dl_test_log, foldId='ED_test', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
             run = Run(runId='example_confusionflow', folds=[train_fold, test_fold], trainfoldId='ED_train')
@@ -186,7 +195,6 @@ def train_one_epoch(model, optimizer, criterion, dataloader):
 
     return train_loss, train_acc
 
-# TODO: save predictions (in log file or with confusion flow)
 def evaluate(model, criterion, dataloader):
     correct = 0
     total_samples = 0
@@ -243,19 +251,36 @@ def test_model(model_name, dataset, positional_encoding, batch_size=128):
 if __name__ == "__main__":
 
     parser = ArgumentParser()
-    parser.add_argument('--device', type=str, default='cuda:0', help='Selected device')
+
+    # model specs
     parser.add_argument('--model', type=str, default="LSTM", help='Model to be trained')
-    parser.add_argument('--conv', action='store_true', default=False)
-    parser.add_argument('--epochs', type=int, default=2000, help='Number of training epochs')
-    parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
     parser.add_argument('--hidden_size', type=int, default=150, help='Number of hidden units per LSTM layer')
     parser.add_argument('--n_layers', type=int, default=1, help='Number of sequential LSTM cells')
     parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2, 3, 4, 5], 
-                        help='Normalization used after each LSTM layer. 0: no normalization. 1: Batchnorm1d with affine False. 2: Batchnorm1d with affine True')
-    parser.add_argument('--custom_split', type=float, default=0.)
+                        help='Normalization used after each LSTM layer.' 
+                        '0: no normalization' 
+                        '1: Batchnorm1d with affine False' 
+                        '2: Batchnorm1d with affine True'
+                        '3: Post Layernorm'
+                        '4: Pre Layernorm')
+    parser.add_argument('--dropout', type=float, default=0., help='Dropout ratio for LSTM Layers except last one')
+    parser.add_argument('--weight_decay', type=float, default=0., help='Weight decay ratio')
+
+    # training specs
+    parser.add_argument('--device', type=str, default='cuda:0', help='Selected device')
+    parser.add_argument('--epochs', type=int, default=2000, help='Number of training epochs')
+    parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
+    parser.add_argument('--learning_rate', type=float, default=1e-3, help='(initial) learning rate for training')
+
+    # input manipulation
     parser.add_argument('--positional_encoding', default=False, action='store_true', help='Defines if positional encoding is added to the input features')
-    parser.add_argument('--export', default=False, action='store_true', help='Defines if model should be exported as .onnx')
-    parser.add_argument('--confusionflow', default=False, action='store_true')
+    parser.add_argument('--augmentation_type', type=str, default=None, help='Augmentation method used') 
+    parser.add_argument('--augmentation_ratio', type=int, default=0, help='ratio of how much augmented data should be generated') 
+        
+    #util
+    parser.add_argument('--export', default=False, action='store_true', help='Export model as .onnx')
+    parser.add_argument('--confusionflow', default=False, action='store_true', help='Use confusion flow to log data')
 
     args = parser.parse_args()
+
     main()

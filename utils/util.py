@@ -28,7 +28,12 @@ def get_data(name):
     X_train = data[:, 1:]
     return X_train, y_train
 
-def load_dataset(name, custom_split, positional_encoding=False, normalized=False, augmentation=None):
+def load_dataset(name, 
+                 positional_encoding=False, 
+                 normalized=False, 
+                 custom_split=False, 
+                 augmentation_type=None, 
+                 augmentation_ratio=0):
     """
     Loads a UCR dataset
 
@@ -71,19 +76,38 @@ def load_dataset(name, custom_split, positional_encoding=False, normalized=False
         X_test = embed_positional_features(X_test)
 
     # Manually split data, otherwise pre-splits are used
-    if custom_split > 0.:
+    if custom_split:
         X_combined = np.concatenate((X_train, X_test), axis=0)
         y_combined = np.concatenate((y_train, y_test), axis=0)
 
-        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=custom_split, shuffle=True, random_state=0)
+        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=0.2, shuffle=True, random_state=1)
 
-    if augmentation == 'jitter':
-        X_train = jitter(X_train)
-    elif augmentation == 'window_warp':
-        X_train = window_warp(X_train)
+    # Add augmented data
+    if augmentation_ratio > 0:
+        X_train, y_train = augment_data(X_train, y_train, augmentation_type, augmentation_ratio)
 
     return (X_train, y_train), (X_test, y_test) 
 
+def augment_data(X, y, augmentation_type, augmentation_ratio):
+    X_aug = X
+    y_aug = y
+    
+    for _ in range(augmentation_ratio):
+        if augmentation_type == 'jitter':
+            X_tmp = jitter(X)
+        elif augmentation_type == 'window_warp':
+            X_tmp = window_warp(X)
+        
+        X_aug = np.append(X_aug, X_tmp, axis=0) 
+        y_aug = np.append(y_aug, y, axis=0) 
+
+    # Shuffle original and augmented data
+    indices = np.arange(X_aug.shape(0))
+    np.random.shuffle(indices)
+    X_aug = X_aug[indices]
+    y_aug = y_aug[indices]
+
+    return X_aug, y_aug
 
 def transform_labels(y):
     """

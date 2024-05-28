@@ -11,3 +11,5 @@ pytorch/checkpoints/
 pytorch/logs/
 pytorch/results/
 results/
+inference_tests/
+inference_target/

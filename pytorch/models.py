@@ -9,7 +9,6 @@ from torch.nn import Parameter
 
 from typing import List, Tuple
 
-
 def init_weights(m):
     if isinstance(m, nn.Linear):
         # same as glorot uniform
@@ -143,7 +142,7 @@ class LSTMFCN(nn.Module):
         return y
 
 class LSTM(nn.Module):
-    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, batch_norm=0, add_conv=False):
+    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, batch_norm=0, add_conv=False, dropout=0.):
         super().__init__()
         self.device = device
         self.input_dim = input_dim

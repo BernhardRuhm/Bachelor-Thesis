@@ -20,10 +20,10 @@ class UCRDataset(Dataset):
         y = self.labels[item]
         return torch.tensor(x, dtype=torch.float32), torch.tensor(y, dtype=torch.long)
 
-def get_Dataloaders(dataset, batch_size, positional_encoding, custom_split):
+def get_Dataloaders(dataset, batch_size, positional_encoding, custom_split, augmentation_type, augmentation_ratio):
 
-    (X_train, y_train), (X_test, y_test) = load_dataset(dataset, positional_encoding=positional_encoding, custom_split=custom_split)
-    print(X_train.shape, X_test.shape)
+    (X_train, y_train), (X_test, y_test) = load_dataset(dataset, positional_encoding, custom_split, augmentation_type, augmentation_ratio)
+
     seq_len, input_dim, n_classes = extract_metrics(X_train, y_train)
 
     metrics = (seq_len, input_dim, n_classes)
