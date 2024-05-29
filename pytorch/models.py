@@ -142,14 +142,14 @@ class LSTMFCN(nn.Module):
         return y
 
 class LSTM(nn.Module):
-    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, batch_norm=0, add_conv=False, dropout=0.):
+    def __init__(self, device, input_dim, hidden_size, n_classes, n_layers, batch_norm=0, dropout=0.):
         super().__init__()
         self.device = device
         self.input_dim = input_dim
         self.hidden_size = hidden_size
         self.n_layers = n_layers
         self.batch_norm_type = batch_norm
-        self.add_conv = add_conv
+        self.dropout_ratio = dropout
 
         self.cnn = nn.Conv1d(input_dim, 128, 5, padding="same")
         self.relu = nn.ReLU()
@@ -160,12 +160,10 @@ class LSTM(nn.Module):
         self.dropout = nn.ModuleList()
 
         for i in range(n_layers):
+
             # Create LSTM Module List
             if i==0:
-                if self.add_conv:
-                    self.lstm.append(nn.LSTM(128, hidden_size))
-                else:
-                    self.lstm.append(nn.LSTM(input_dim, hidden_size))
+                self.lstm.append(nn.LSTM(input_dim, hidden_size))
             else:
                 self.lstm.append(nn.LSTM(hidden_size, hidden_size))
 
@@ -176,16 +174,13 @@ class LSTM(nn.Module):
                 self.bn.append(nn.BatchNorm1d(hidden_size, affine=True))
             elif batch_norm == 3:
                 self.bn.append(nn.LayerNorm(hidden_size))
-            elif batch_norm == 4 or batch_norm == 5:
+            elif batch_norm == 4:
                 if i == 0:
-                    if self.add_conv:
-                        self.bn.append(nn.LayerNorm(128))
-                    else:
-                        self.bn.append(nn.LayerNorm(input_dim))
+                    self.bn.append(nn.LayerNorm(input_dim))
                 else:
                     self.bn.append(nn.LayerNorm(hidden_size))
 
-            if i != self.n_layers - 1:
+            if self.dropout_ratio > 0. and i != self.n_layers - 1:
                 self.dropout.append(nn.Dropout(p=0.3))
 
         self.dense = nn.Linear(hidden_size , n_classes)
@@ -198,37 +193,47 @@ class LSTM(nn.Module):
     def forward(self, x):
         h0, c0 = self.init_hidden_states(x.shape[1]) 
 
-        if self.add_conv:
-            x = x.permute(1, 2, 0)
-            x = self.cnn(x)
-            x = F.relu(x)
-            x = x.permute(2, 0, 1) 
-
         for i in range(self.n_layers):
+
+            # No normalization
             if self.batch_norm_type == 0:
                 x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
 
+                if self.dropout_ratio > 0. and i != self.n_layers - 1:
+                    x = self.dropout[i](x)
+           
+            # Affine False BatchNorm & Affine True BatchNorm
             if self.batch_norm_type == 1 or self.batch_norm_type == 2:
                 x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
+
+                if self.dropout_ratio > 0. and i != self.n_layers - 1:
+                    x = self.dropout[i](x)
+
                 x = self.bn[i](x.permute(1, 2, 0)).permute(2, 0, 1)
 
+            # Post LayerNorm
             elif self.batch_norm_type == 3:
                 x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
+
+                if self.dropout_ratio > 0. and i != self.n_layers - 1:
+                    x = self.dropout[i](x)
+
                 x = self.bn[i](x.permute(1, 0, 2)).permute(1, 0, 2)
 
+            # Pre LayerNorm
             elif self.batch_norm_type == 4:
                 x = self.bn[i](x.permute(1, 0, 2)).permute(1, 0, 2)
+
                 x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
 
-            elif self.batch_norm_type == 5:
-                x = self.bn[i](x.permute(1, 0, 2)).permute(1, 0, 2)
-                x, _ = self.lstm[i](x, (h0[i:i+1, : ], c0[i:i+1, :]))
-                if i != self.n_layers - 1:
+                if self.dropout_ratio > 0. and i != self.n_layers - 1:
                     x = self.dropout[i](x)
+            
             
 
         y = x[-1, :]
         y = self.dense(y)
+
         return y
 
 class FCN(nn.Module):
@@ -271,13 +276,13 @@ class FCN(nn.Module):
 #     def forward():
 #         pass
 
-def generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm, add_conv):
+def generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm, dropout):
     if model_name == "LSTMFCN":
         model = LSTMFCN(device, input_dim, n_classes)
     elif model_name == "FCN":
         model = FCN(device, input_dim, n_classes)
     elif model_name ==  "LSTM":
-        model = LSTM(device, input_dim, hidden_size, n_classes, n_layers, batch_norm, add_conv)
+        model = LSTM(device, input_dim, hidden_size, n_classes, n_layers, batch_norm, dropout)
 
     return model
 

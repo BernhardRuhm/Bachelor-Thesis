@@ -30,10 +30,10 @@ def get_data(name):
 
 def load_dataset(name, 
                  positional_encoding=False, 
-                 normalized=False, 
-                 custom_split=False, 
+                 custom_split_ratio=0, 
                  augmentation_type=None, 
-                 augmentation_ratio=0):
+                 augmentation_ratio=0,
+                 normalized=False):
     """
     Loads a UCR dataset
 
@@ -76,11 +76,11 @@ def load_dataset(name,
         X_test = embed_positional_features(X_test)
 
     # Manually split data, otherwise pre-splits are used
-    if custom_split:
+    if custom_split_ratio > 0.:
         X_combined = np.concatenate((X_train, X_test), axis=0)
         y_combined = np.concatenate((y_train, y_test), axis=0)
 
-        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=0.2, shuffle=True, random_state=1)
+        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=custom_split_ratio, shuffle=True, random_state=1)
 
     # Add augmented data
     if augmentation_ratio > 0:
@@ -102,7 +102,7 @@ def augment_data(X, y, augmentation_type, augmentation_ratio):
         y_aug = np.append(y_aug, y, axis=0) 
 
     # Shuffle original and augmented data
-    indices = np.arange(X_aug.shape(0))
+    indices = np.arange(X_aug.shape[0])
     np.random.shuffle(indices)
     X_aug = X_aug[indices]
     y_aug = y_aug[indices]

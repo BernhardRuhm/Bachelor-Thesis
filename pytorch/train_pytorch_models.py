@@ -29,7 +29,7 @@ torch.manual_seed(0)
 # datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
 # 'ElectricDevices', 'FordA', 'FordB', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll'] 
 # datasets = ['ChlorineConcentration', 'ElectricDevices', 'FordA', 'UWaveGestureLibraryAll'] 
-datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FordA', 'FaceAll', 'PhalangesOutlinesCorrect', 'ShapesAll', 'wafer']
+datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FaceAll', 'PhalangesOutlinesCorrect', 'wafer']
 # datasets = ["FaceAll"]
 
 def main():
@@ -49,7 +49,7 @@ def main():
 
     # input manipulation args
     positional_encoding = args.positional_encoding
-    custom_split = args.custom_split
+    custom_split_ratio = args.custom_split
     augmentation_type = args.augmentation_type
     augmentation_ratio = args.augmentation_ratio
 
@@ -90,7 +90,7 @@ def main():
         training_file = os.path.join(experiment_path, ds + ".csv") 
         create_training_csv(training_file)
 
-        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding, custom_split, augmentation_type, augmentation_ratio)
+        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding, custom_split_ratio, augmentation_type, augmentation_ratio)
         seq_len, input_dim, n_classes = metrics
 
         model = generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm, dropout) 
@@ -103,7 +103,7 @@ def main():
 
         # specify confusion flow folds and run
         if use_confusionflow:
-            dl_train_log, dl_test_log, _ = get_Dataloaders(ds, batch_size, positional_encoding, custom_split, augmentation_type, augmentation_ratio)
+            dl_train_log, dl_test_log, _ = get_Dataloaders(ds, batch_size, positional_encoding, custom_split_ratio, augmentation_type, augmentation_ratio)
             train_fold = Fold(data=dl_train_log, foldId='ED_train', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
             test_fold = Fold(data=dl_test_log, foldId='ED_test', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
             run = Run(runId='example_confusionflow', folds=[train_fold, test_fold], trainfoldId='ED_train')
@@ -276,6 +276,7 @@ if __name__ == "__main__":
     parser.add_argument('--positional_encoding', default=False, action='store_true', help='Defines if positional encoding is added to the input features')
     parser.add_argument('--augmentation_type', type=str, default=None, help='Augmentation method used') 
     parser.add_argument('--augmentation_ratio', type=int, default=0, help='ratio of how much augmented data should be generated') 
+    parser.add_argument('--custom_split', type=float, default=0., help='ratio of test split, after shuffling default train and test sets')
         
     #util
     parser.add_argument('--export', default=False, action='store_true', help='Export model as .onnx')
