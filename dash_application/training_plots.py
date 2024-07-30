@@ -70,20 +70,20 @@ weight_decay_experiments = [
     # "keras dropout",
     "keras LN",
     # "keras LN + wd 5e-4",
-    "keras LN + weight decay",
+    "keras LN + weightdecay",
     "keras LN + Dropout",
     "keras BN",
-    "keras BN + weight decay",
+    "keras BN + weightdecay",
     "keras BN + Dropout",
-    "keras BN + data augmentation",
+    "keras BN + augmentation",
     # "BN data aug",
     # "LN data aug",
     # "LN data aug DO",
     # "BN data aug DO",
-    "pytorch LN",
-    "pytorch LN + weight decay",
-    "pytorch LN + Dropout",
-    "pytorch + data augmentation",
+    "torch LN",
+    "torch LN + weightdecay",
+    "torch LN + Dropout",
+    "torch + augmentation",
 ]
 
 weight_decay_experiments_path = [
@@ -91,7 +91,7 @@ weight_decay_experiments_path = [
     # "LSTM_PosEnc_BN:4 WD:5e-4 HS:100 NL:4 06_28_2024_01:31:00",
     # "LSTM_PosEnc_BN:4 WD:1e-3 HS:100 NL:4 07_05_2024_22:45:30",
     # "LSTM_PosEnc_BN:4 DA HS:100 NL:4 07_09_2024_21:40:12",
-    # "../../keras/experiments/vanilla_lstm_PosEnc BN HS:100 NL:4 07_18_2024_09:49:57",
+    
     # "../../keras/experiments/vanilla_lstm_PosEnc WD:1e-3 HS:100 NL:4 07_16_2024_21:09:08",
     # "../../keras/experiments/vanilla_lstm_PosEnc LN HS:100 NL:4 07_17_2024_21:49:08",
     "../../keras/experiments/vanilla_lstm_PosEnc HS:100 NL:4 07_19_2024_00:50:10",
@@ -236,7 +236,7 @@ def update_graph1(selected_dataset):
     fig2 = px.bar(pd.DataFrame({'model': weight_decay_experiments, 'accuracy': acc}), x='model', y='accuracy', color='accuracy')
     fig2.update_xaxes(tickfont=dict(size=15), tickangle=0)
     fig2.update_yaxes(tickfont=dict(size=15), range=[0., 1.])
-    fig2.update_layout(title='Accuracies of all models', width=1500)
+    fig2.update_layout(title='Accuracies of all models', width=2100)
     
     return fig1, fig2
 
