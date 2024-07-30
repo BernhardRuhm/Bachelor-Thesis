@@ -18,19 +18,17 @@ from confusionflow.logging import Fold, Run
 from dataloader import get_Dataloaders
 from models import valid_models, LSTMFCN, init_weights, generate_model
 
-sys.path.append("../utils")
-from util import models_dir, create_results_csv, add_results, export_model, create_predictions_csv, create_training_csv 
+sys.path.append("./utils/")
+from util import arg_parser, models_dir, create_results_csv, add_results, export_model, create_predictions_csv, create_training_csv, get_augmentation_type 
+from datasets import DATASETS_DICT
 from visualize import visualize_training_data
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
 
-# datasets = ['50words', 'ChlorineConcentration', 'Cricket_X', 'Cricket_Y', 'Cricket_Z', 
-# 'ElectricDevices', 'FordA', 'FordB', 'NonInvasiveFatalECG_Thorax1', 'UWaveGestureLibraryAll'] 
-# datasets = ['ChlorineConcentration', 'ElectricDevices', 'FordA', 'UWaveGestureLibraryAll'] 
-datasets = ['50words', 'Cricket_X', 'NonInvasiveFatalECG_Thorax1', 'FaceAll', 'PhalangesOutlinesCorrect', 'wafer']
-# datasets = ["FaceAll"]
+datasets = ['50words', 'Cricket_X', 'FaceAll', 'FordA', 'NonInvasiveFatalECG_Thorax1', 'PhalangesOutlinesCorrect', 'UWaveGestureLibraryAll', 'wafer',
+            "Two_Patterns", "SwedishLeaf", "StarLightCurves"]
 
 def main():
    
@@ -49,9 +47,7 @@ def main():
 
     # input manipulation args
     positional_encoding = args.positional_encoding
-    custom_split_ratio = args.custom_split
-    augmentation_type = args.augmentation_type
-    augmentation_ratio = args.augmentation_ratio
+    data_augmentation = args.data_augmentation
 
     # util args
     export = args.export
@@ -67,11 +63,11 @@ def main():
     if batch_norm != 0:
         path_prefix += "_BN:" + str(batch_norm)
 
-    checkpoint_path = 'checkpoints'
+    checkpoint_path = 'pytorch/checkpoints'
     os.makedirs(checkpoint_path, exist_ok=True)
     checkpoint_path = os.path.join(checkpoint_path, model_name)
 
-    experiment_path = os.path.join('experiments', path_prefix + path_suffix)
+    experiment_path = os.path.join('pytorch/experiments', path_prefix + path_suffix)
     os.makedirs(experiment_path, exist_ok=True) 
 
     # Write args of experiment to a file
@@ -90,7 +86,8 @@ def main():
         training_file = os.path.join(experiment_path, ds + ".csv") 
         create_training_csv(training_file)
 
-        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding, custom_split_ratio, augmentation_type, augmentation_ratio)
+
+        dl_train, dl_test, metrics = get_Dataloaders(ds, batch_size, positional_encoding, data_augmentation)
         seq_len, input_dim, n_classes = metrics
 
         model = generate_model(model_name, device, input_dim, hidden_size, n_classes, n_layers, batch_norm, dropout) 
@@ -103,7 +100,7 @@ def main():
 
         # specify confusion flow folds and run
         if use_confusionflow:
-            dl_train_log, dl_test_log, _ = get_Dataloaders(ds, batch_size, positional_encoding, custom_split_ratio, augmentation_type, augmentation_ratio)
+            dl_train_log, dl_test_log, _ = get_Dataloaders(ds, batch_size, positional_encoding, data_augmentation)
             train_fold = Fold(data=dl_train_log, foldId='ED_train', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
             test_fold = Fold(data=dl_test_log, foldId='ED_test', dataset_config='../datasets/UCR_TS_Archive_2015/ElectricDevices/ElectricDevices.yml')
             run = Run(runId='example_confusionflow', folds=[train_fold, test_fold], trainfoldId='ED_train')
@@ -145,7 +142,6 @@ def main():
                 peak_val_acc = val_acc
 
         train_time = time.time() -  start_time
-
 
         add_results(result_file, ds, best_val_acc, peak_val_acc, train_time)
 
@@ -250,38 +246,7 @@ def test_model(model_name, dataset, positional_encoding, batch_size=128):
 
 if __name__ == "__main__":
 
-    parser = ArgumentParser()
-
-    # model specs
-    parser.add_argument('--model', type=str, default="LSTM", help='Model to be trained')
-    parser.add_argument('--hidden_size', type=int, default=150, help='Number of hidden units per LSTM layer')
-    parser.add_argument('--n_layers', type=int, default=1, help='Number of sequential LSTM cells')
-    parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2, 3, 4, 5], 
-                        help='Normalization used after each LSTM layer.' 
-                        '0: no normalization' 
-                        '1: Batchnorm1d with affine False' 
-                        '2: Batchnorm1d with affine True'
-                        '3: Post Layernorm'
-                        '4: Pre Layernorm')
-    parser.add_argument('--dropout', type=float, default=0., help='Dropout ratio for LSTM Layers except last one')
-    parser.add_argument('--weight_decay', type=float, default=0., help='Weight decay ratio')
-
-    # training specs
-    parser.add_argument('--device', type=str, default='cuda:0', help='Selected device')
-    parser.add_argument('--epochs', type=int, default=2000, help='Number of training epochs')
-    parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
-    parser.add_argument('--learning_rate', type=float, default=1e-3, help='(initial) learning rate for training')
-
-    # input manipulation
-    parser.add_argument('--positional_encoding', default=False, action='store_true', help='Defines if positional encoding is added to the input features')
-    parser.add_argument('--augmentation_type', type=str, default=None, help='Augmentation method used') 
-    parser.add_argument('--augmentation_ratio', type=int, default=0, help='ratio of how much augmented data should be generated') 
-    parser.add_argument('--custom_split', type=float, default=0., help='ratio of test split, after shuffling default train and test sets')
-        
-    #util
-    parser.add_argument('--export', default=False, action='store_true', help='Export model as .onnx')
-    parser.add_argument('--confusionflow', default=False, action='store_true', help='Use confusion flow to log data')
-
+    parser = arg_parser()
     args = parser.parse_args()
 
     main()

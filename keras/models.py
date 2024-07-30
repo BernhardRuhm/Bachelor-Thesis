@@ -2,23 +2,27 @@ import tensorflow as tf
 from tensorflow import keras
 
 from keras.layers import Conv1D, BatchNormalization, GlobalAveragePooling1D, Permute, Dropout, Flatten
-from keras.layers import Input, InputLayer, Dense, LSTM, Concatenate, Activation, RNN 
+from keras.layers import Input, InputLayer, Dense, LSTM, Concatenate, Activation, RNN, LayerNormalization 
 from keras.models import Sequential, Model 
 
 from custom_layers import FocusedLSTMCell, PositionalEncoding 
 
 
-def gen_vanilla_dense(input_dim, seq_len, n_layers, hidden_size, n_classes, batch_size, positional_encoding=False):
+def gen_vanilla_dense(batch_size, seq_len, input_dim, hidden_size, n_layers, n_classes, batch_norm, dropout):
     model = Sequential()
     model.add(InputLayer(input_shape=(seq_len, input_dim), batch_size=batch_size))
 
-    if positional_encoding == True:
-        model.add(PositionalEncoding())
+    for i in range(n_layers-1):
+        model.add(LSTM(hidden_size, return_sequences=True, dropout=dropout))
+        if batch_norm == 4:
+            model.add(LayerNormalization())
+        elif batch_norm == 1:
+            model.add(BatchNormalization())
 
-    for _ in range(n_layers-1):
-        model.add(LSTM(hidden_size, return_sequences=True))
+    model.add(LSTM(hidden_size, dropout=dropout))
+    if batch_norm == 1:
+        model.add(BatchNormalization())
 
-    model.add(LSTM(hidden_size))
     model.add(Dense(n_classes, activation="softmax"))
 
     return model
@@ -66,6 +70,13 @@ def gen_lstmfcn(input_dim, seq_len, n_layers, hidden_size, n_classes, batch_size
 
     return model
 
+def generate_model(model_name, batch_size, seq_len, input_dim, hidden_size, n_layers, n_classes, batch_norm, dropout):
+    if model_name == "LSTM":
+        return gen_vanilla_dense(batch_size, seq_len, input_dim, hidden_size, n_layers, n_classes, batch_norm, dropout)
+    else:
+        return gen_vanilla_dense(batch_size, seq_len, input_dim, hidden_size, n_layers, n_classes, batch_norm, dropout)
+
+    return None
 
 valid_models = [
     ("LSTMFCN", gen_lstmfcn),

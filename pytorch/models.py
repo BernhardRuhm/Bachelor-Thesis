@@ -151,9 +151,6 @@ class LSTM(nn.Module):
         self.batch_norm_type = batch_norm
         self.dropout_ratio = dropout
 
-        self.cnn = nn.Conv1d(input_dim, 128, 5, padding="same")
-        self.relu = nn.ReLU()
-
         self.lstm = nn.ModuleList() 
         self.bn = nn.ModuleList()
 
@@ -181,7 +178,7 @@ class LSTM(nn.Module):
                     self.bn.append(nn.LayerNorm(hidden_size))
 
             if self.dropout_ratio > 0. and i != self.n_layers - 1:
-                self.dropout.append(nn.Dropout(p=0.3))
+                self.dropout.append(nn.Dropout(p=self.dropout_ratio))
 
         self.dense = nn.Linear(hidden_size , n_classes)
 
