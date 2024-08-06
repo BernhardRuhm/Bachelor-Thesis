@@ -139,13 +139,67 @@ pytorch = [
     "--batch_norm=0"
 ]
 
+keras_bn1 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=4",
+    "--positional_encoding",
+    "--batch_norm=1",
+]
+
+keras_bn2 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=4",
+    "--positional_encoding",
+    "--batch_norm=2",
+]
+
+keras_bn3 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=4",
+    "--positional_encoding",
+    "--batch_norm=3",
+]
+
+keras_bn4 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=4",
+    "--positional_encoding",
+    "--batch_norm=4",
+]
+
+keras_bn5 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=4",
+    "--positional_encoding",
+    "--batch_norm=5",
+]
+
+keras_bn6 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=4",
+    "--positional_encoding",
+    "--batch_norm=6",
+]
+
 # pytorch:  *) normal -> only missing
 #           *) batchnorm -> only mising 
 # keras     *) batch_norm 
 #           *) data_aug
 
+# new datasets:
+    # SPECTRO: Ethanollevel
+    # Devices: ElectricDevices 
+    # MOTION: Haptics
+    # AUDIO: Phoneme
+
 # experiments = [lstm, lstm_postnorm, lstm_prenorm, cnn_lstm_prenorm, lstm_prenorm_customsplit]
-experiments = [keras_bn_dropout, keras_bn_wd, keras_bn_da] 
+experiments = [keras_bn1, keras_bn2, keras_bn3, keras_bn4, keras_bn5, keras_bn6, ] 
 
 for args in experiments:
     print(args)

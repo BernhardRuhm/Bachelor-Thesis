@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import os 
 import csv
 
@@ -15,6 +16,9 @@ import torch
 import onnx
 from onnxsim import simplify
 
+from datasets import DATASETS_DICT
+from augmentation import get_augmentation_type, augment_data
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 archiv_dir = os.path.join(current_dir, "../datasets/UCR_TS_Archive_2015/")
 models_dir = os.path.join(current_dir,"../models")
@@ -30,9 +34,7 @@ def get_data(name):
 
 def load_dataset(name, 
                  positional_encoding=False, 
-                 custom_split_ratio=0, 
-                 augmentation_type=None, 
-                 augmentation_ratio=0,
+                 data_augmentation=False,
                  normalized=False):
     """
     Loads a UCR dataset
@@ -70,44 +72,31 @@ def load_dataset(name,
         X_train = np.expand_dims(X_train, axis=2)
         X_test = np.expand_dims(X_test, axis=2)
 
+    # Add augmented data
+
+    if data_augmentation:
+
+        target_samples = int(len(X_test) / 0.4)
+        additional_train_samples = target_samples - len(X_test) - len(X_train)
+
+        if additional_train_samples > 0:
+            augmentation_type = get_augmentation_type(DATASETS_DICT[name]["type"])
+            X_train, y_train = augment_data(X_train, y_train, additional_train_samples, augmentation_type)
+
+
+    # Manually split data, otherwise pre-splits are used
+    # if custom_split_ratio > 0.:
+    #     X_combined = np.concatenate((X_train, X_test), axis=0)
+    #     y_combined = np.concatenate((y_train, y_test), axis=0)
+    #     X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=custom_split_ratio, shuffle=True, random_state=1)
+
     # Add additional positional encoding features
     if positional_encoding:
         X_train = embed_positional_features(X_train)
         X_test = embed_positional_features(X_test)
 
-    # Manually split data, otherwise pre-splits are used
-    if custom_split_ratio > 0.:
-        X_combined = np.concatenate((X_train, X_test), axis=0)
-        y_combined = np.concatenate((y_train, y_test), axis=0)
-
-        X_train, X_test, y_train, y_test = train_test_split(X_combined, y_combined, test_size=custom_split_ratio, shuffle=True, random_state=1)
-
-    # Add augmented data
-    if augmentation_ratio > 0:
-        X_train, y_train = augment_data(X_train, y_train, augmentation_type, augmentation_ratio)
-
     return (X_train, y_train), (X_test, y_test) 
 
-def augment_data(X, y, augmentation_type, augmentation_ratio):
-    X_aug = X
-    y_aug = y
-    
-    for _ in range(augmentation_ratio):
-        if augmentation_type == 'jitter':
-            X_tmp = jitter(X)
-        elif augmentation_type == 'window_warp':
-            X_tmp = window_warp(X)
-        
-        X_aug = np.append(X_aug, X_tmp, axis=0) 
-        y_aug = np.append(y_aug, y, axis=0) 
-
-    # Shuffle original and augmented data
-    indices = np.arange(X_aug.shape[0])
-    np.random.shuffle(indices)
-    X_aug = X_aug[indices]
-    y_aug = y_aug[indices]
-
-    return X_aug, y_aug
 
 def transform_labels(y):
     """
@@ -184,28 +173,6 @@ def embed_positional_features(data):
 
     return np.concatenate((data, positional_features), axis=-1) 
 
-def jitter(x, sigma=0.03):
-    # https://arxiv.org/pdf/1706.00527.pdf
-    return x + np.random.normal(loc=0., scale=sigma, size=x.shape)
-
-def window_warp(x, window_ratio=0.1, scales=[0.5, 2.]):
-    # https://halshs.archives-ouvertes.fr/halshs-01357973/document
-    warp_scales = np.random.choice(scales, x.shape[0])
-    warp_size = np.ceil(window_ratio*x.shape[1]).astype(int)
-    window_steps = np.arange(warp_size)
-        
-    window_starts = np.random.randint(low=1, high=x.shape[1]-warp_size-1, size=(x.shape[0])).astype(int)
-    window_ends = (window_starts + warp_size).astype(int)
-            
-    ret = np.zeros_like(x)
-    for i, pat in enumerate(x):
-        for dim in range(x.shape[2]):
-            start_seg = pat[:window_starts[i],dim]
-            window_seg = np.interp(np.linspace(0, warp_size-1, num=int(warp_size*warp_scales[i])), window_steps, pat[window_starts[i]:window_ends[i],dim])
-            end_seg = pat[window_ends[i]:,dim]
-            warped = np.concatenate((start_seg, window_seg, end_seg))                
-            ret[i,:,dim] = np.interp(np.arange(x.shape[1]), np.linspace(0, x.shape[1]-1., num=warped.size), warped).T
-    return ret
 
 def get_datasets_hiddensize(file_name):
     content = []
@@ -248,3 +215,40 @@ def export_model(model_checkpoint, model_name, dataset, seq_len, input_dim, devi
 
     if simplify:
         simplify_model(model_file)
+
+def arg_parser():
+
+    parser = ArgumentParser()
+
+    # model specs
+    parser.add_argument('--model', type=str, default="LSTM", help='Model to be trained')
+    parser.add_argument('--hidden_size', type=int, default=150, help='Number of hidden units per LSTM layer')
+    parser.add_argument('--n_layers', type=int, default=1, help='Number of sequential LSTM cells')
+    parser.add_argument('--batch_norm', type=int, default=0, choices=[0, 1, 2, 3, 4, 5, 6], 
+                        help='Normalization used after each LSTM layer.' 
+                        '0: no normalization' 
+                        '1: Batchnorm1d with affine False' 
+                        '2: Batchnorm1d with affine True'
+                        '3: Post Layernorm'
+                        '4: Pre Layernorm')
+    parser.add_argument('--dropout', type=float, default=0., help='Dropout ratio for LSTM Layers except last one')
+    parser.add_argument('--weight_decay', type=float, default=0., help='Weight decay ratio')
+
+    # training specs
+    parser.add_argument('--device', type=str, default='cuda:0', help='Selected device')
+    parser.add_argument('--epochs', type=int, default=2000, help='Number of training epochs')
+    parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
+    parser.add_argument('--learning_rate', type=float, default=1e-3, help='(initial) learning rate for training')
+
+    # input manipulation
+    parser.add_argument('--positional_encoding', default=False, action='store_true', help='Defines if positional encoding is added to the input features')
+    parser.add_argument('--data_augmentation', default=False, action='store_true', help='add addition augmented data for 70 / 30 split') 
+    parser.add_argument('--custom_split', type=float, default=0., help='ratio of test split, after shuffling default train and test sets')
+        
+    #util
+    parser.add_argument('--export', default=False, action='store_true', help='Export model as .onnx')
+    parser.add_argument('--confusionflow', default=False, action='store_true', help='Use confusion flow to log data')
+    parser.add_argument('--framework', default='keras', type=str, help="Framework to be used")
+
+    return parser
+

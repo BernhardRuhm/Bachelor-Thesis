@@ -12,16 +12,25 @@ def gen_vanilla_dense(batch_size, seq_len, input_dim, hidden_size, n_layers, n_c
     model = Sequential()
     model.add(InputLayer(input_shape=(seq_len, input_dim), batch_size=batch_size))
 
+    if batch_norm == 5:
+        model.add(BatchNormalization())
+    if batch_norm == 6:
+        model.add(LayerNormalization())
+
     for i in range(n_layers-1):
+            
         model.add(LSTM(hidden_size, return_sequences=True, dropout=dropout))
-        if batch_norm == 4:
+
+        if batch_norm == 4 or batch_norm == 3 or batch_norm == 6:
             model.add(LayerNormalization())
-        elif batch_norm == 1:
+        elif batch_norm == 1 or batch_norm == 2 or batch_norm == 5:
             model.add(BatchNormalization())
 
     model.add(LSTM(hidden_size, dropout=dropout))
     if batch_norm == 1:
         model.add(BatchNormalization())
+    elif batch_norm == 3:
+        model.add(LayerNormalization())
 
     model.add(Dense(n_classes, activation="softmax"))
 

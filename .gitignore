@@ -1,5 +1,5 @@
 __pycache__/
-
+.vscode/
 datasets/
 models_old/ 
 models/
@@ -13,3 +13,4 @@ pytorch/results/
 results/
 inference_tests/
 inference_target/
+deprecated

@@ -27,8 +27,50 @@ from util import create_results_csv, add_results, calculate_eval_metrics, get_al
 keras.utils.set_random_seed(0)
 np.random.seed(0)
 
-datasets = ['50words', 'Cricket_X', 'FaceAll', 'FordA', 'NonInvasiveFatalECG_Thorax1', 'PhalangesOutlinesCorrect', 'UWaveGestureLibraryAll', 'wafer',
-            "Two_Patterns", "SwedishLeaf", "StarLightCurves"]
+datasets = ['FordA', 'NonInvasiveFatalECG_Thorax1', 'PhalangesOutlinesCorrect', 'UWaveGestureLibraryAll',
+            'Two_Patterns', 'StarLightCurves', 'Ham', 'Phoneme', 'Haptics', 'ElectricDevices']
+
+class CustomCSVLogger(Callback):
+    def __init__(self, filename, separator=','):
+        super().__init__()
+        self.filename = filename
+        self.separator = separator
+        self.file = open(self.filename, 'w', newline='')
+        self.writer = csv.writer(self.file, delimiter=self.separator)
+        self.writer.writerow(['epoch', 'train_loss', 'val_loss', 'train_acc', 'val_acc', 'lr'])
+    
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        optimizer = self.model.optimizer
+        lr = K.eval(optimizer.lr)
+        self.writer.writerow([
+            epoch,
+            logs.get('loss'),
+            logs.get('val_loss'),
+            logs.get('accuracy'),
+            logs.get('val_accuracy'),
+            lr
+        ])
+        self.file.flush()
+    
+    def on_train_end(self, logs=None):
+        self.file.close()
+
+# class PredictionLogger(Callback):
+#     def __init__(self, filename, test_data, separator=','):
+#         super().__init__()
+#         self.filename = filename
+#         self.separator = separator
+#         self.file = open(self.filename, 'w', newline='')
+#         self.writer = csv.writer(self.file, delimiter=self.separator)
+#         self.writer.writerow(['epoch', 'predictions'])
+#         self.test_data = test_data
+
+#     def on_epoch_end(self, epoch, logs=None):
+#         pred = self.model.predict
+#     def on_train_end(self, logs=None):
+#         self.file.close()
+
 
 def main():
     # model args 
@@ -92,31 +134,6 @@ def main():
         add_results(result_file, ds, acc, acc, train_time )
         
 
-class CustomCSVLogger(Callback):
-    def __init__(self, filename, separator=','):
-        super().__init__()
-        self.filename = filename
-        self.separator = separator
-        self.file = open(self.filename, 'w', newline='')
-        self.writer = csv.writer(self.file, delimiter=self.separator)
-        self.writer.writerow(['epoch', 'train_loss', 'val_loss', 'train_acc', 'val_acc', 'lr'])
-    
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-        optimizer = self.model.optimizer
-        lr = K.eval(optimizer.lr)
-        self.writer.writerow([
-            epoch,
-            logs.get('loss'),
-            logs.get('val_loss'),
-            logs.get('accuracy'),
-            logs.get('val_accuracy'),
-            lr
-        ])
-        self.file.flush()
-    
-    def on_train_end(self, logs=None):
-        self.file.close()
 
 def train_model(model_name, dataset, batch_size, hidden_size, n_layers, batch_norm, dropout, weight_decay, positional_encoding, data_augmentation,
                 save_batch_1, experiment_path, time_stamp, learning_rate, n_epochs): 

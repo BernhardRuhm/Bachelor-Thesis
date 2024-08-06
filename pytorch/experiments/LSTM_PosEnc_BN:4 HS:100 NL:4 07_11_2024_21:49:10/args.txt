@@ -1,0 +1,17 @@
+{
+    "model": "LSTM",
+    "hidden_size": 100,
+    "n_layers": 4,
+    "batch_norm": 4,
+    "dropout": 0.0,
+    "weight_decay": 0.0,
+    "device": "cuda:0",
+    "epochs": 2000,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "positional_encoding": true,
+    "data_augmentation": false,
+    "custom_split": 0.0,
+    "export": false,
+    "confusionflow": false
+}
