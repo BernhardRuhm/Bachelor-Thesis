@@ -21,14 +21,12 @@ from models import generate_model
 from custom_layers import FocusedLSTMCell, PositionalEncoding
 
 sys.path.append("./utils/")
-from util import arg_parser, load_dataset, extract_metrics, archiv_dir, models_dir 
-from util import create_results_csv, add_results, calculate_eval_metrics, get_all_datasets, get_datasets_hiddensize 
+from util import arg_parser, load_dataset, extract_metrics, models_dir 
+from util import create_results_csv, add_results, calculate_eval_metrics, get_testing_datasets
 
 keras.utils.set_random_seed(0)
 np.random.seed(0)
 
-datasets = ['FordA', 'NonInvasiveFatalECG_Thorax1', 'PhalangesOutlinesCorrect', 'UWaveGestureLibraryAll',
-            'Two_Patterns', 'StarLightCurves', 'Ham', 'Phoneme', 'Haptics', 'ElectricDevices']
 
 class CustomCSVLogger(Callback):
     def __init__(self, filename, separator=','):
@@ -113,7 +111,8 @@ def main():
     result_file = os.path.join(experiment_path, 'results.csv')
     create_results_csv(result_file)
 
-    for ds in sorted(datasets):
+    datasets = get_testing_datasets()
+    for ds in datasets:
         keras.backend.clear_session()
         train_time, model_file = train_model(model_name, 
                                             ds, 

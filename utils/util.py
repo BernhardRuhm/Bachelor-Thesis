@@ -20,14 +20,14 @@ from datasets import DATASETS_DICT
 from augmentation import get_augmentation_type, augment_data
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-archiv_dir = os.path.join(current_dir, "../datasets/UCR_TS_Archive_2015/")
+archiv_dir = os.path.join(current_dir, "../datasets/UCRArchive_2018/")
 models_dir = os.path.join(current_dir,"../models")
 
 def get_data(name):
     if not os.path.isfile(name):
         raise FileNotFoundError("File %s doesn't exist" % name)
 
-    data = np.loadtxt(name, delimiter=",")
+    data = np.loadtxt(name, delimiter="\t")
     y_train = data[:, 0] 
     X_train = data[:, 1:]
     return X_train, y_train
@@ -52,8 +52,8 @@ def load_dataset(name,
     
     file_name = os.path.join(path, name)
 
-    X_train, y_train = get_data(file_name + "_TRAIN")   
-    X_test, y_test = get_data(file_name + "_TEST")   
+    X_train, y_train = get_data(file_name + "_TRAIN.tsv")   
+    X_test, y_test = get_data(file_name + "_TEST.tsv")   
 
     # transform labels to start with 0
     y_train = transform_labels(y_train)
@@ -128,13 +128,17 @@ def extract_metrics(X, y):
     return seq_len, dim, classes
 
 def get_all_datasets():
-    all_datasets = os.listdir(archiv_dir)  
-    datasets = []
-    for ds in all_datasets:
-        (X_train, y_train), _ = load_dataset(ds) 
-        if X_train.shape[0] > 400:
-            datasets.append(ds)
+    all_datasets = list(DATASETS_DICT.keys()) 
+    return sorted(all_datasets)
+
+def get_testing_datasets():
+    datasets = ['Crop', 'NonInvasiveFetalECGThorax1', 'Fungi', 'Strawberry', 'TwoPatterns', 
+                'MelbournePedestrian', 'UWaveGestureLibraryAll', 'InsectEPGRegularTrain', 
+                'ElectricDevices', 'EOGHorizontalSignal', 'FordB', 'InsectWingbeatSound', 
+                'PigAirwayPressure', 'Worms']
+
     return sorted(datasets)
+
 
 def create_results_csv(file_name):
     df = pd.DataFrame(data=np.zeros((0, 4)), 
@@ -237,7 +241,7 @@ def arg_parser():
     # training specs
     parser.add_argument('--device', type=str, default='cuda:0', help='Selected device')
     parser.add_argument('--epochs', type=int, default=2000, help='Number of training epochs')
-    parser.add_argument('--batch_size', type=int, default=128, help='Train and validation batch size')
+    parser.add_argument('--batch_size', type=int, default=64, help='Train and validation batch size')
     parser.add_argument('--learning_rate', type=float, default=1e-3, help='(initial) learning rate for training')
 
     # input manipulation

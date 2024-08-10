@@ -187,6 +187,36 @@ keras_bn6 = [
     "--batch_norm=6",
 ]
 
+keras_l1 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=1",
+]
+
+keras_l2 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=2",
+]
+
+keras_l3 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=3",
+]
+
+keras_l4 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=4",
+]
+
+keras_l5 = [
+    "--framework=keras",
+    "--hidden_size=100",
+    "--n_layers=5",
+]
+
 # pytorch:  *) normal -> only missing
 #           *) batchnorm -> only mising 
 # keras     *) batch_norm 
